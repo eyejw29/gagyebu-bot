@@ -1,0 +1,1550 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가계부 CMS — 대시보드</title>
+    <style>
+        /* ============================================================
+           ⑥ Dashboard 모듈 v3.0 — 통합형 대시보드
+           독립 배포: GitHub Pages
+           데이터 소스: Render API 서버
+           ============================================================ */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f0f2f5;
+            color: #1a1a2e;
+            min-height: 100vh;
+        }
+
+        /* 헤더 */
+        .header {
+            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+            color: white;
+            padding: 20px 16px 16px;
+            text-align: center;
+        }
+        .header h1 { font-size: 1.3rem; font-weight: 700; letter-spacing: -0.5px; }
+        .header .version { font-size: 0.7rem; opacity: 0.5; margin-top: 2px; }
+
+        /* 상태 바 */
+        .status-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 16px;
+            background: #fff;
+            border-bottom: 1px solid #e8eaed;
+            font-size: 0.75rem;
+            color: #5f6368;
+        }
+        .status-dot {
+            width: 7px; height: 7px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 4px;
+            vertical-align: middle;
+        }
+        .status-dot.online { background: #34a853; }
+        .status-dot.offline { background: #ea4335; }
+        .status-dot.loading { background: #fbbc04; }
+
+        /* 컨테이너 */
+        .container {
+            max-width: 480px;
+            margin: 0 auto;
+            padding: 0 0 80px;
+        }
+
+        /* 탭 */
+        .tabs {
+            display: flex;
+            background: #fff;
+            border-bottom: 1px solid #e8eaed;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            overflow-x: auto;
+        }
+        .tab {
+            flex: 1;
+            min-width: 55px;
+            padding: 10px 0;
+            text-align: center;
+            font-size: 0.78rem;
+            font-weight: 500;
+            cursor: pointer;
+            color: #80868b;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+        .tab.active { color: #1a73e8; border-bottom-color: #1a73e8; }
+
+        /* ===== 섹션 공통 ===== */
+        .section { padding: 12px 16px; }
+        .section-title {
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: #5f6368;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .section-title .badge {
+            font-size: 0.65rem;
+            background: #e8f0fe;
+            color: #1a73e8;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-weight: 500;
+        }
+
+        /* ===== KPI 카드 ===== */
+        .kpi-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            padding: 12px 16px;
+        }
+        .kpi-card {
+            background: white;
+            border-radius: 12px;
+            padding: 14px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+        }
+        .kpi-card.full { grid-column: 1 / -1; }
+        .kpi-label { font-size: 0.7rem; color: #80868b; margin-bottom: 4px; }
+        .kpi-value { font-size: 1.35rem; font-weight: 700; }
+        .kpi-sub { font-size: 0.68rem; color: #80868b; margin-top: 2px; }
+        .kpi-change {
+            font-size: 0.68rem;
+            font-weight: 600;
+            margin-top: 2px;
+        }
+        .kpi-change.up { color: #ea4335; }
+        .kpi-change.down { color: #34a853; }
+        .kpi-change.neutral { color: #80868b; }
+        .expense { color: #ea4335; }
+        .income { color: #34a853; }
+        .transfer { color: #1a73e8; }
+
+        /* ===== 차트 영역 ===== */
+        .chart-card {
+            background: white;
+            border-radius: 12px;
+            padding: 16px;
+            margin: 0 16px 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+        }
+        .chart-title {
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: #3c4043;
+            margin-bottom: 12px;
+        }
+
+        /* 파이차트 (SVG) */
+        .pie-container {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        .pie-svg { width: 100px; height: 100px; flex-shrink: 0; }
+        .pie-legend { flex: 1; }
+        .pie-legend-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 0.75rem;
+            padding: 3px 0;
+        }
+        .pie-legend-dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            margin-right: 6px;
+            flex-shrink: 0;
+        }
+        .pie-legend-name { flex: 1; color: #3c4043; }
+        .pie-legend-val { font-weight: 600; color: #3c4043; margin-left: 8px; }
+        .pie-legend-pct { font-size: 0.65rem; color: #80868b; width: 32px; text-align: right; }
+
+        /* 바차트 */
+        .bar-chart { display: flex; align-items: flex-end; gap: 4px; height: 100px; }
+        .bar-col {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100%;
+            justify-content: flex-end;
+        }
+        .bar {
+            width: 100%;
+            max-width: 28px;
+            border-radius: 4px 4px 0 0;
+            background: linear-gradient(180deg, #667eea, #764ba2);
+            min-height: 2px;
+            transition: height 0.3s;
+        }
+        .bar.today-bar { background: linear-gradient(180deg, #ea4335, #ff6b6b); }
+        .bar-label { font-size: 0.6rem; color: #80868b; margin-top: 4px; }
+        .bar-val { font-size: 0.58rem; color: #5f6368; margin-bottom: 2px; font-weight: 500; }
+
+        /* 라인차트 (간이) */
+        .line-chart-svg { width: 100%; height: 80px; }
+        .line-chart-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.6rem;
+            color: #80868b;
+            margin-top: 4px;
+        }
+
+        /* ===== 고정비/변동비 섹션 ===== */
+        .cost-type-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            padding: 12px 16px;
+            margin-bottom: 8px;
+        }
+        .cost-type-card {
+            background: white;
+            border-radius: 12px;
+            padding: 14px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+        }
+        .cost-type-label { font-size: 0.7rem; color: #80868b; margin-bottom: 4px; }
+        .cost-type-value { font-size: 1.35rem; font-weight: 700; margin-bottom: 2px; }
+        .cost-type-pct { font-size: 0.68rem; color: #80868b; }
+        .cost-type-ratio {
+            background: white;
+            border-radius: 12px;
+            padding: 16px;
+            margin: 0 16px 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+        }
+        .ratio-bar {
+            display: flex;
+            height: 24px;
+            border-radius: 12px;
+            overflow: hidden;
+            margin-bottom: 8px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+        }
+        .ratio-fixed {
+            background: linear-gradient(90deg, #a78bfa, #c084fc);
+            flex-shrink: 0;
+        }
+        .ratio-variable {
+            background: linear-gradient(90deg, #fbbf24, #fcd34d);
+            flex-shrink: 0;
+        }
+        .ratio-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.7rem;
+            font-weight: 500;
+            color: #5f6368;
+        }
+
+        /* 이슈 카드 */
+        .issue-card {
+            background: white;
+            border-radius: 12px;
+            padding: 12px 14px;
+            margin: 0 16px 8px;
+            border-left: 4px solid;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+        }
+        .issue-card.warning {
+            background: #fef3c7;
+            border-left-color: #f59e0b;
+        }
+        .issue-card.danger {
+            background: #fef2f2;
+            border-left-color: #ef4444;
+        }
+        .issue-card.info {
+            background: #eff6ff;
+            border-left-color: #3b82f6;
+        }
+        .issue-title {
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: #1a1a2e;
+            margin-bottom: 4px;
+        }
+        .issue-desc {
+            font-size: 0.72rem;
+            color: #5f6368;
+            line-height: 1.4;
+        }
+
+        /* 중복 감지 배너 */
+        .duplicate-banner {
+            background: #fef2f2;
+            border-left: 4px solid #ef4444;
+            padding: 10px 14px;
+            margin: 8px 16px;
+            border-radius: 8px;
+            font-size: 0.78rem;
+            font-weight: 500;
+            color: #ef4444;
+            display: none;
+        }
+        .duplicate-banner.show { display: block; }
+
+        /* ===== 카테고리 리스트 ===== */
+        .cat-item {
+            background: white;
+            border-radius: 10px;
+            padding: 10px 14px;
+            margin-bottom: 6px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+        }
+        .cat-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+        .cat-name { font-size: 0.82rem; font-weight: 500; }
+        .cat-amount { font-size: 0.82rem; font-weight: 600; color: #ea4335; }
+        .cat-bar {
+            height: 4px;
+            background: #f1f3f4;
+            border-radius: 2px;
+            overflow: hidden;
+        }
+        .cat-bar-fill {
+            height: 100%;
+            border-radius: 2px;
+            transition: width 0.4s;
+        }
+
+        /* ===== 거래 리스트 ===== */
+        .tx-item {
+            background: white;
+            border-radius: 10px;
+            padding: 12px 14px;
+            margin-bottom: 6px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: opacity 0.2s;
+        }
+        .tx-item.excluded {
+            opacity: 0.5;
+            background: #f5f5f5;
+        }
+        .tx-item.duplicate {
+            opacity: 0.6;
+        }
+        .tx-icon {
+            width: 36px; height: 36px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+            margin-right: 10px;
+            flex-shrink: 0;
+        }
+        .tx-icon.food { background: #fef3e2; }
+        .tx-icon.cafe { background: #fce4ec; }
+        .tx-icon.transport { background: #e3f2fd; }
+        .tx-icon.shopping { background: #f3e5f5; }
+        .tx-icon.life { background: #e8f5e9; }
+        .tx-icon.medical { background: #fff3e0; }
+        .tx-icon.sub { background: #ede7f6; }
+        .tx-icon.etc { background: #f5f5f5; }
+        .tx-left { display: flex; align-items: center; flex: 1; min-width: 0; }
+        .tx-info { min-width: 0; flex: 1; }
+        .tx-store { font-size: 0.85rem; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .tx-meta { font-size: 0.68rem; color: #80868b; margin-top: 2px; }
+        .tx-right { text-align: right; flex-shrink: 0; margin-left: 8px; }
+        .tx-amount { font-size: 0.88rem; font-weight: 600; }
+        .tx-amount.strikethrough { text-decoration: line-through; }
+        .tx-type-badge {
+            display: inline-block;
+            font-size: 0.6rem;
+            padding: 1px 6px;
+            border-radius: 4px;
+            margin-top: 2px;
+            font-weight: 500;
+        }
+        .tx-type-badge.expense { background: #fce8e6; color: #ea4335; }
+        .tx-type-badge.income { background: #e6f4ea; color: #34a853; }
+        .tx-type-badge.transfer { background: #e8f0fe; color: #1a73e8; }
+        .tx-duplicate-badge {
+            display: inline-block;
+            font-size: 0.6rem;
+            padding: 1px 6px;
+            border-radius: 4px;
+            background: #fef2f2;
+            color: #ef4444;
+            font-weight: 500;
+            margin-left: 3px;
+        }
+        .tx-cost-type-badge {
+            display: inline-block;
+            font-size: 0.6rem;
+            padding: 1px 6px;
+            border-radius: 4px;
+            margin-top: 2px;
+            margin-left: 3px;
+            font-weight: 500;
+        }
+        .tx-cost-type-badge.fixed { background: #ede7f6; color: #845ef7; }
+        .tx-cost-type-badge.variable { background: #fef3c7; color: #92400e; }
+        .tx-source-badge {
+            display: inline-block;
+            font-size: 0.55rem;
+            padding: 1px 4px;
+            border-radius: 3px;
+            background: #e8eaed;
+            color: #5f6368;
+            font-weight: 500;
+            margin-left: 2px;
+        }
+        .tx-actions {
+            display: flex;
+            gap: 6px;
+            margin-top: 8px;
+        }
+        .tx-action-btn {
+            flex: 1;
+            font-size: 0.7rem;
+            padding: 6px 10px;
+            border: 1px solid #dadce0;
+            border-radius: 6px;
+            background: white;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        .tx-action-btn:hover { background: #f8f9fa; }
+        .tx-action-btn.danger {
+            border-color: #ef4444;
+            color: #ef4444;
+        }
+        .tx-action-btn.danger:hover { background: #fef2f2; }
+
+        /* 빈 상태 */
+        .empty {
+            text-align: center;
+            padding: 40px 16px;
+            color: #80868b;
+        }
+        .empty .icon { font-size: 2rem; margin-bottom: 8px; }
+        .empty .msg { font-size: 0.85rem; }
+
+        /* 새로고침 */
+        .refresh-btn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 44px; height: 44px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #0f0c29, #302b63);
+            color: white;
+            border: none;
+            font-size: 1.1rem;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(15,12,41,0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 20;
+        }
+        .spin { animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* 샘플 배너 */
+        .sample-banner {
+            background: #fff8e1;
+            color: #f57f17;
+            text-align: center;
+            padding: 6px;
+            font-size: 0.7rem;
+            font-weight: 500;
+            display: none;
+        }
+        .sample-banner.show { display: block; }
+
+        /* 로드맵 */
+        .roadmap {
+            padding: 16px;
+        }
+        .roadmap-item {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+        .roadmap-dot-col {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 20px;
+        }
+        .roadmap-dot {
+            width: 12px; height: 12px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        .roadmap-dot.active { background: #1a73e8; box-shadow: 0 0 0 3px #e8f0fe; }
+        .roadmap-dot.future { background: #dadce0; }
+        .roadmap-line {
+            width: 2px;
+            flex: 1;
+            background: #dadce0;
+            margin-top: 4px;
+        }
+        .roadmap-content { flex: 1; padding-top: 0; }
+        .roadmap-ver {
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: #1a73e8;
+            margin-bottom: 2px;
+        }
+        .roadmap-ver.future-ver { color: #80868b; }
+        .roadmap-name { font-size: 0.85rem; font-weight: 600; color: #202124; margin-bottom: 4px; }
+        .roadmap-desc { font-size: 0.72rem; color: #5f6368; line-height: 1.4; }
+        .roadmap-modules { font-size: 0.65rem; color: #1a73e8; margin-top: 4px; line-height: 1.5; }
+        .roadmap-modules span { background: #e8f0fe; padding: 1px 6px; border-radius: 4px; margin-right: 3px; display: inline-block; margin-bottom: 2px; }
+
+        /* 수동 입력 버튼 */
+        .add-btn {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            width: 44px; height: 44px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #34a853, #0d652d);
+            color: white;
+            border: none;
+            font-size: 1.4rem;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(52,168,83,0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 20;
+        }
+
+        /* 모달 */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 100;
+            align-items: flex-end;
+            justify-content: center;
+        }
+        .modal-overlay.show { display: flex; }
+        .modal {
+            background: white;
+            border-radius: 16px 16px 0 0;
+            width: 100%;
+            max-width: 480px;
+            max-height: 85vh;
+            overflow-y: auto;
+            padding: 20px 16px 32px;
+        }
+        .modal-title {
+            font-size: 1rem;
+            font-weight: 700;
+            margin-bottom: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 1.2rem;
+            cursor: pointer;
+            color: #80868b;
+            padding: 4px;
+        }
+        .input-group { margin-bottom: 12px; }
+        .input-label { font-size: 0.75rem; font-weight: 600; color: #5f6368; margin-bottom: 4px; display: block; }
+        .input-field {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #dadce0;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            outline: none;
+        }
+        .input-field:focus { border-color: #1a73e8; box-shadow: 0 0 0 2px #e8f0fe; }
+        .input-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .type-btns { display: flex; gap: 6px; }
+        .type-btn {
+            flex: 1;
+            padding: 8px;
+            border: 1px solid #dadce0;
+            border-radius: 8px;
+            background: white;
+            font-size: 0.78rem;
+            cursor: pointer;
+            text-align: center;
+            font-weight: 500;
+        }
+        .type-btn.selected { border-color: #1a73e8; background: #e8f0fe; color: #1a73e8; }
+        .submit-btn {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #0f0c29, #302b63);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 8px;
+        }
+        .submit-btn:active { opacity: 0.8; }
+        .input-tabs { display: flex; gap: 0; margin-bottom: 16px; border-radius: 8px; overflow: hidden; border: 1px solid #dadce0; }
+        .input-tab {
+            flex: 1;
+            padding: 8px;
+            text-align: center;
+            font-size: 0.78rem;
+            font-weight: 500;
+            cursor: pointer;
+            background: white;
+            color: #5f6368;
+            border: none;
+        }
+        .input-tab.active { background: #1a73e8; color: white; }
+        .paste-area {
+            width: 100%;
+            min-height: 100px;
+            padding: 12px;
+            border: 2px dashed #dadce0;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            color: #80868b;
+            text-align: center;
+            line-height: 1.6;
+            resize: vertical;
+            font-family: inherit;
+        }
+        .paste-area:focus { border-color: #1a73e8; color: #1a1a2e; text-align: left; }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <h1>가계부 CMS</h1>
+    <div class="version">⑥ Dashboard v3.0 — 통합형 대시보드</div>
+    <div style="font-size:0.68rem;opacity:0.6;margin-top:6px;line-height:1.4;">고정비·변동비 분류 · 중복 감지 · 제외 거래 관리<br>v3.0 부부 가계부 기능 통합 준비 중</div>
+</div>
+
+<div class="status-bar">
+    <span><span class="status-dot loading" id="statusDot"></span><span id="statusText">연결 중...</span></span>
+    <span id="statusCount"></span>
+</div>
+
+<div class="sample-banner" id="sampleBanner">샘플 데이터로 표시 중 — 실제 결제가 쌓이면 자동 전환됩니다</div>
+
+<div class="container">
+    <div class="tabs">
+        <div class="tab active" data-view="today" onclick="switchTab(this)">오늘</div>
+        <div class="tab" data-view="week" onclick="switchTab(this)">이번 주</div>
+        <div class="tab" data-view="month" onclick="switchTab(this)">이번 달</div>
+        <div class="tab" data-view="all" onclick="switchTab(this)">전체</div>
+        <div class="tab" data-view="excluded" onclick="switchTab(this)">제외</div>
+        <div class="tab" data-view="roadmap" onclick="switchTab(this)">로드맵</div>
+    </div>
+
+    <!-- KPI 카드 -->
+    <div class="kpi-row" id="kpiCards"></div>
+
+    <!-- 차트: 일별 지출 바차트 -->
+    <div class="chart-card" id="barChartCard" style="display:none">
+        <div class="chart-title">일별 지출 추이</div>
+        <div class="bar-chart" id="barChart"></div>
+    </div>
+
+    <!-- 차트: 카테고리 파이 -->
+    <div class="chart-card" id="pieChartCard" style="display:none">
+        <div class="chart-title">카테고리별 지출 비중</div>
+        <div class="pie-container">
+            <svg class="pie-svg" viewBox="0 0 42 42" id="pieSvg"></svg>
+            <div class="pie-legend" id="pieLegend"></div>
+        </div>
+    </div>
+
+    <!-- 고정비/변동비 섹션 -->
+    <div id="costTypeSection" style="display:none">
+        <div class="cost-type-section">
+            <div class="cost-type-card">
+                <div class="cost-type-label">고정비</div>
+                <div class="cost-type-value" style="color:#845ef7" id="fixedCostValue">0원</div>
+                <div class="cost-type-pct" id="fixedCostPct">0%</div>
+            </div>
+            <div class="cost-type-card">
+                <div class="cost-type-label">변동비</div>
+                <div class="cost-type-value" style="color:#f59e0b" id="variableCostValue">0원</div>
+                <div class="cost-type-pct" id="variableCostPct">0%</div>
+            </div>
+        </div>
+
+        <div class="cost-type-ratio">
+            <div class="ratio-bar">
+                <div class="ratio-fixed" id="ratioFixed"></div>
+                <div class="ratio-variable" id="ratioVariable"></div>
+            </div>
+            <div class="ratio-labels">
+                <span>고정비</span>
+                <span>변동비</span>
+            </div>
+        </div>
+
+        <div id="issueCards"></div>
+    </div>
+
+    <!-- 제외 거래 섹션 -->
+    <div id="excludedSection" style="display:none">
+        <div class="section">
+            <div class="section-title">제외된 거래 <span class="badge" id="excludedCount">0건</span></div>
+            <div id="excludedList"></div>
+        </div>
+    </div>
+
+    <!-- 중복 감지 배너 -->
+    <div class="duplicate-banner" id="duplicateBanner"></div>
+
+    <!-- 카테고리 리스트 -->
+    <div class="section" id="catSection" style="display:none">
+        <div class="section-title">카테고리별 상세 <span class="badge" id="catCount"></span></div>
+        <div id="catList"></div>
+    </div>
+
+    <!-- 거래 내역 -->
+    <div class="section" id="txSection">
+        <div class="section-title">거래 내역 <span class="badge" id="txCount"></span></div>
+        <div id="txList"></div>
+    </div>
+
+    <!-- 로드맵 -->
+    <div class="roadmap" id="roadmapSection" style="display:none">
+        <div class="section-title" style="padding:0 0 12px;">버전 로드맵</div>
+    </div>
+</div>
+
+<button class="add-btn" id="addBtn" onclick="openModal()">+</button>
+<button class="refresh-btn" id="refreshBtn" onclick="refreshData()">&#x21bb;</button>
+
+<!-- 수동 입력 모달 -->
+<div class="modal-overlay" id="modalOverlay" onclick="if(event.target===this)closeModal()">
+    <div class="modal">
+        <div class="modal-title">거래 직접 입력 <button class="modal-close" onclick="closeModal()">&times;</button></div>
+        <div class="input-tabs">
+            <div class="input-tab active" onclick="switchInputTab(this,'form')">직접 입력</div>
+            <div class="input-tab" onclick="switchInputTab(this,'paste')">문자 붙여넣기</div>
+            <div class="input-tab" onclick="switchInputTab(this,'image')">이미지 (v3)</div>
+        </div>
+
+        <!-- 직접 입력 폼 -->
+        <div id="inputForm">
+            <div class="input-group">
+                <label class="input-label">거래유형</label>
+                <div class="type-btns">
+                    <div class="type-btn selected" onclick="selectType(this,'지출')">지출</div>
+                    <div class="type-btn" onclick="selectType(this,'입금')">입금</div>
+                    <div class="type-btn" onclick="selectType(this,'이체')">이체</div>
+                </div>
+            </div>
+            <div class="input-row">
+                <div class="input-group">
+                    <label class="input-label">금액</label>
+                    <input class="input-field" id="inpAmount" type="number" placeholder="35000">
+                </div>
+                <div class="input-group">
+                    <label class="input-label">카드</label>
+                    <input class="input-field" id="inpCard" type="text" placeholder="신한">
+                </div>
+            </div>
+            <div class="input-group">
+                <label class="input-label">사용처</label>
+                <input class="input-field" id="inpStore" type="text" placeholder="스타벅스">
+            </div>
+            <div class="input-row">
+                <div class="input-group">
+                    <label class="input-label">카테고리</label>
+                    <select class="input-field" id="inpCat">
+                        <option>식비</option><option>카페</option><option>교통</option>
+                        <option>쇼핑</option><option>생활</option><option>의료</option>
+                        <option>구독</option><option>통신</option><option>유흥</option><option>기타</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label class="input-label">비용구분</label>
+                    <select class="input-field" id="inpCostType">
+                        <option>변동비</option><option>고정비</option>
+                    </select>
+                </div>
+            </div>
+            <button class="submit-btn" onclick="submitManual()">등록하기</button>
+        </div>
+
+        <!-- 문자 붙여넣기 -->
+        <div id="inputPaste" style="display:none">
+            <div class="input-group">
+                <label class="input-label">카드 문자 내용을 그대로 붙여넣기</label>
+                <textarea class="paste-area" id="pasteArea" placeholder="예시:&#10;[신한] 승인 35,000원 스타벅스 03/29&#10;&#10;또는 카드사 알림 문자를 그대로 복사해서 붙여넣기"></textarea>
+            </div>
+            <button class="submit-btn" onclick="submitPaste()">파싱 후 등록</button>
+        </div>
+
+        <!-- 이미지 (v3 예정) -->
+        <div id="inputImage" style="display:none">
+            <div class="empty" style="padding:32px 0">
+                <div class="icon">📷</div>
+                <div class="msg">이미지 업로드는 v3.0에서 지원 예정</div>
+                <div style="font-size:0.72rem;color:#80868b;margin-top:8px">영수증/카드 문자 캡처 → OCR 자동 파싱</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+/* ============================================================
+   ⑥ Dashboard v3.0 — 통합형 대시보드 로직
+   새로운 기능: 고정비/변동비, 중복 감지, 제외 거래
+   ============================================================ */
+const API_BASE = "https://gagyebu-bot.onrender.com";
+let allTransactions = [];
+let usingSample = false;
+let currentView = "today";
+
+const CAT_COLORS = {
+    "식비": "#ff6b6b", "카페": "#f06595", "교통": "#4dabf7",
+    "쇼핑": "#cc5de8", "생활": "#51cf66", "의료": "#ffa94d",
+    "구독": "#845ef7", "통신": "#20c997", "유흥": "#ff922b",
+    "기타": "#adb5bd"
+};
+const CAT_ICONS = {
+    "식비": "🍽️", "카페": "☕", "교통": "🚗",
+    "쇼핑": "🛍️", "생활": "🏠", "의료": "🏥",
+    "구독": "📱", "통신": "📡", "유흥": "🎉",
+    "기타": "📦"
+};
+const CAT_ICON_CLASS = {
+    "식비": "food", "카페": "cafe", "교통": "transport",
+    "쇼핑": "shopping", "생활": "life", "의료": "medical",
+    "구독": "sub", "통신": "sub", "유흥": "food",
+    "기타": "etc"
+};
+
+// 비용구분 자동 분류 규칙
+const COST_TYPE_MAP = {
+    "생활": "고정비",
+    "구독": "고정비",
+    "통신": "고정비",
+    "식비": "변동비",
+    "카페": "변동비",
+    "교통": "변동비",
+    "쇼핑": "변동비",
+    "의료": "변동비",
+    "유흥": "변동비",
+    "기타": "변동비"
+};
+
+// 제외 키워드 감지
+const EXCLUDE_KEYWORDS = ["이체", "송금", "취소", "환불", "반품", "주식", "펀드", "대출상환"];
+
+// ===== 샘플 데이터 =====
+function generateSampleData() {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = now.getMonth();
+    const samples = [
+        { store: "스타벅스 강남점", amount: 6500, card: "신한", category: "카페", type: "지출", daysAgo: 0, hour: 9, cost_type: "변동비", source: "sms", is_excluded: false, exclude_type: "none" },
+        { store: "배달의민족", amount: 32000, card: "현대", category: "식비", type: "지출", daysAgo: 0, hour: 12, cost_type: "변동비", source: "sms", is_excluded: false, exclude_type: "none" },
+        { store: "GS칼텍스 주유소", amount: 72000, card: "현대", category: "교통", type: "지출", daysAgo: 0, hour: 15, cost_type: "변동비", source: "sms", is_excluded: false, exclude_type: "none" },
+        { store: "급여", amount: 3500000, card: "기타", category: "기타", type: "입금", daysAgo: 1, hour: 9, cost_type: "변동비", source: "sms", is_excluded: false, exclude_type: "none" },
+        { store: "이디야커피", amount: 4500, card: "신한", category: "카페", type: "지출", daysAgo: 1, hour: 10, cost_type: "변동비", source: "sms", is_excluded: false, exclude_type: "none" },
+        { store: "쿠팡", amount: 45900, card: "삼성", category: "쇼핑", type: "지출", daysAgo: 1, hour: 14, cost_type: "변동비", source: "sms", is_excluded: false, exclude_type: "none" },
+        { store: "CU 편의점", amount: 8200, card: "신한", category: "식비", type: "지출", daysAgo: 1, hour: 19, cost_type: "변동비", source: "sms", is_excluded: false, exclude_type: "none" },
+        { store: "맥도날드", amount: 12500, card: "현대", category: "식비", type: "지출", daysAgo: 2, hour: 12, cost_type: "변동비", source: "sms", is_excluded: false, exclude_type: "none" },
+        { store: "카카오택시", amount: 15800, card: "하나", category: "교통", type: "지출", daysAgo: 2, hour: 18, cost_type: "변동비", source: "sms", is_excluded: false, exclude_type: "none" },
+        { store: "올리브영", amount: 28700, card: "삼성", category: "쇼핑", type: "지출", daysAgo: 2, hour: 16, cost_type: "변동비", source: "sms", is_excluded: false, exclude_type: "none" },
+        { store: "넷플릭스", amount: 17000, card: "신한", category: "구독", type: "지출", daysAgo: 3, hour: 0, cost_type: "고정비", source: "sms", is_excluded: false, exclude_type: "none" },
+        { store: "파리바게뜨", amount: 9800, card: "현대", category: "식비", type: "지출", daysAgo: 3, hour: 8, cost_type: "변동비", source: "sms", is_excluded: false, exclude_type: "none" },
+        { store: "이마트", amount: 67500, card: "삼성", category: "쇼핑", type: "지출", daysAgo: 4, hour: 11, cost_type: "변동비", source: "sms", is_excluded: false, exclude_type: "none" },
+        { store: "투썸플레이스", amount: 7200, card: "신한", category: "카페", type: "지출", daysAgo: 4, hour: 15, cost_type: "변동비", source: "sms", is_excluded: false, exclude_type: "none" },
+        { store: "관리비", amount: 185000, card: "기타", category: "생활", type: "지출", daysAgo: 5, hour: 0, cost_type: "고정비", source: "sms", is_excluded: false, exclude_type: "none" },
+        { store: "치킨매니아", amount: 22000, card: "하나", category: "식비", type: "지출", daysAgo: 5, hour: 20, cost_type: "변동비", source: "sms", is_excluded: false, exclude_type: "none" },
+        { store: "내과의원", amount: 15000, card: "신한", category: "의료", type: "지출", daysAgo: 6, hour: 10, cost_type: "변동비", source: "sms", is_excluded: false, exclude_type: "none" },
+        { store: "메가커피", amount: 3000, card: "현대", category: "카페", type: "지출", daysAgo: 6, hour: 14, cost_type: "변동비", source: "sms", is_excluded: false, exclude_type: "none" },
+        { store: "SK주유소", amount: 68000, card: "현대", category: "교통", type: "지출", daysAgo: 7, hour: 9, cost_type: "변동비", source: "sms", is_excluded: false, exclude_type: "none" },
+        { store: "이체 → 와이프", amount: 500000, card: "기타", category: "기타", type: "이체", daysAgo: 7, hour: 12, cost_type: "변동비", source: "sms", is_excluded: true, exclude_type: "transfer" },
+        { store: "김밥천국", amount: 7500, card: "신한", category: "식비", type: "지출", daysAgo: 8, hour: 12, cost_type: "변동비", source: "sms", is_excluded: false, exclude_type: "none" },
+        { store: "다이소", amount: 12000, card: "삼성", category: "쇼핑", type: "지출", daysAgo: 9, hour: 16, cost_type: "변동비", source: "sms", is_excluded: false, exclude_type: "none" },
+        { store: "bbq치킨", amount: 25000, card: "하나", category: "식비", type: "지출", daysAgo: 10, hour: 19, cost_type: "변동비", source: "sms", is_excluded: false, exclude_type: "none" },
+        { store: "KT 통신비", amount: 55000, card: "기타", category: "통신", type: "지출", daysAgo: 10, hour: 0, cost_type: "고정비", source: "sms", is_excluded: false, exclude_type: "none" },
+        // 중복 거래
+        { store: "스타벅스 강남", amount: 6500, card: "신한", category: "카페", type: "지출", daysAgo: 0, hour: 9, cost_type: "변동비", source: "sms", is_excluded: false, exclude_type: "none", is_duplicate: true },
+        { store: "배달의민족", amount: 32000, card: "현대", category: "식비", type: "지출", daysAgo: 0, hour: 12, cost_type: "변동비", source: "sms", is_excluded: false, exclude_type: "none", is_duplicate: true }
+    ];
+    return samples.map((s, i) => {
+        const d = new Date(now);
+        d.setDate(d.getDate() - s.daysAgo);
+        d.setHours(s.hour, 0, 0);
+        return {
+            id: i + 1,
+            store: s.store,
+            amount: s.amount,
+            card: s.card,
+            category: s.category,
+            type: s.type,
+            date: d.toISOString().slice(0, 10),
+            time: String(s.hour).padStart(2, "0") + ":00",
+            member: "은재",
+            parsed: true,
+            created_at: d.toISOString(),
+            cost_type: s.cost_type || COST_TYPE_MAP[s.category] || "변동비",
+            source: s.source || "sms",
+            is_excluded: s.is_excluded || false,
+            exclude_type: s.exclude_type || "none",
+            is_duplicate: s.is_duplicate || false
+        };
+    });
+}
+
+// 제외 거래 감지 (is_excluded 필드 이용)
+function detectExclusions() {
+    allTransactions.forEach(t => {
+        if (!t.is_excluded && !t.exclude_type) {
+            for (let kw of EXCLUDE_KEYWORDS) {
+                if (t.store && t.store.includes(kw)) {
+                    t.is_excluded = true;
+                    t.exclude_type = kw;
+                    break;
+                }
+            }
+        }
+    });
+}
+
+// 중복 거래 감지
+function detectDuplicates() {
+    const txMap = {};
+    allTransactions.forEach(t => {
+        if (t.type === "지출") {
+            const key = `${t.date}|${t.amount}`;
+            if (!txMap[key]) txMap[key] = [];
+            txMap[key].push(t);
+        }
+    });
+
+    Object.entries(txMap).forEach(([key, txs]) => {
+        if (txs.length > 1) {
+            txs.forEach(t => t.is_duplicate = true);
+        }
+    });
+}
+
+// ===== 데이터 fetch =====
+async function fetchTransactions() {
+    try {
+        const res = await fetch(API_BASE + "/api/transactions");
+        if (!res.ok) throw new Error("API error");
+        const data = await res.json();
+        if (data.length > 0) {
+            allTransactions = data.map(t => ({
+                ...t,
+                cost_type: t.cost_type || COST_TYPE_MAP[t.category] || "변동비",
+                source: t.source || "sms",
+                is_excluded: t.is_excluded || false,
+                exclude_type: t.exclude_type || "none",
+                is_duplicate: t.is_duplicate || false
+            }));
+            usingSample = false;
+            setStatus("online", "연결됨", data.length + "건");
+            document.getElementById("sampleBanner").classList.remove("show");
+        } else {
+            allTransactions = generateSampleData();
+            usingSample = true;
+            setStatus("online", "연결됨", "샘플 표시 중");
+            document.getElementById("sampleBanner").classList.add("show");
+        }
+        detectExclusions();
+        detectDuplicates();
+        render();
+    } catch (e) {
+        if (allTransactions.length === 0) {
+            allTransactions = generateSampleData();
+            usingSample = true;
+            document.getElementById("sampleBanner").classList.add("show");
+            detectExclusions();
+            detectDuplicates();
+        }
+        setStatus("offline", "서버 연결 실패", "");
+        render();
+    }
+}
+
+function setStatus(state, text, count) {
+    document.getElementById("statusDot").className = "status-dot " + state;
+    document.getElementById("statusText").textContent = text;
+    document.getElementById("statusCount").textContent = count;
+}
+
+// ===== 필터 =====
+function getFiltered(includeExcluded = false) {
+    const now = new Date();
+    const todayStr = now.toISOString().slice(0, 10);
+    const y = now.getFullYear();
+    const mo = String(now.getMonth() + 1).padStart(2, "0");
+    const monthPfx = y + "-" + mo;
+    const dow = now.getDay();
+    const monOff = dow === 0 ? 6 : dow - 1;
+    const mon = new Date(now); mon.setDate(now.getDate() - monOff);
+    const monStr = mon.toISOString().slice(0, 10);
+
+    let filtered = allTransactions;
+    if (!includeExcluded) {
+        filtered = filtered.filter(t => !t.is_excluded);
+    }
+
+    if (currentView === "today") return filtered.filter(t => t.date === todayStr);
+    if (currentView === "week") return filtered.filter(t => t.date >= monStr && t.date <= todayStr);
+    if (currentView === "month") return filtered.filter(t => t.date && t.date.startsWith(monthPfx));
+    if (currentView === "excluded") return allTransactions.filter(t => t.is_excluded);
+    return filtered;
+}
+
+// ===== 메인 렌더 =====
+function render() {
+    const isRoadmap = currentView === "roadmap";
+    const isExcluded = currentView === "excluded";
+
+    document.getElementById("kpiCards").style.display = isRoadmap || isExcluded ? "none" : "";
+    document.getElementById("barChartCard").style.display = "none";
+    document.getElementById("pieChartCard").style.display = "none";
+    document.getElementById("costTypeSection").style.display = isRoadmap || isExcluded ? "none" : "";
+    document.getElementById("catSection").style.display = "none";
+    document.getElementById("txSection").style.display = isRoadmap ? "none" : "";
+    document.getElementById("excludedSection").style.display = isExcluded ? "" : "none";
+    document.getElementById("roadmapSection").style.display = isRoadmap ? "" : "none";
+    document.getElementById("duplicateBanner").style.display = "none";
+
+    if (isRoadmap) { renderRoadmap(); return; }
+    if (isExcluded) { renderExcluded(); return; }
+
+    const filtered = getFiltered(false);
+    renderKPI(filtered);
+    renderBarChart(filtered);
+    renderPieChart(filtered);
+    renderCostType(filtered);
+    renderCategories(filtered);
+    renderDuplicates(filtered);
+    renderTransactions(filtered);
+}
+
+// ===== KPI =====
+function renderKPI(txs) {
+    const exp = txs.filter(t => t.type === "지출");
+    const inc = txs.filter(t => t.type === "입금");
+    const totalExp = exp.reduce((s, t) => s + t.amount, 0);
+    const totalInc = inc.reduce((s, t) => s + t.amount, 0);
+    const avgPerTx = exp.length > 0 ? Math.round(totalExp / exp.length) : 0;
+
+    const labels = { today: "오늘", week: "이번 주", month: "이번 달", all: "전체" };
+    const lb = labels[currentView] || "전체";
+
+    document.getElementById("kpiCards").innerHTML =
+        '<div class="kpi-card">' +
+            '<div class="kpi-label">' + lb + ' 지출</div>' +
+            '<div class="kpi-value expense">' + fmtAmt(totalExp) + '</div>' +
+            '<div class="kpi-sub">' + exp.length + '건</div>' +
+        '</div>' +
+        '<div class="kpi-card">' +
+            '<div class="kpi-label">' + lb + ' 입금</div>' +
+            '<div class="kpi-value income">' + fmtAmt(totalInc) + '</div>' +
+            '<div class="kpi-sub">' + inc.length + '건</div>' +
+        '</div>' +
+        '<div class="kpi-card">' +
+            '<div class="kpi-label">건당 평균 지출</div>' +
+            '<div class="kpi-value">' + fmtAmt(avgPerTx) + '</div>' +
+            '<div class="kpi-sub">' + exp.length + '건 기준</div>' +
+        '</div>' +
+        '<div class="kpi-card">' +
+            '<div class="kpi-label">순수지</div>' +
+            '<div class="kpi-value" style="color:' + (totalInc - totalExp >= 0 ? '#34a853' : '#ea4335') + '">' +
+                (totalInc - totalExp >= 0 ? '+' : '') + fmtAmt(totalInc - totalExp) +
+            '</div>' +
+            '<div class="kpi-sub">' + txs.length + '건 합산</div>' +
+        '</div>';
+}
+
+// ===== 고정비/변동비 =====
+function renderCostType(txs) {
+    const exp = txs.filter(t => t.type === "지출");
+    const fixed = exp.filter(t => t.cost_type === "고정비");
+    const variable = exp.filter(t => t.cost_type === "변동비");
+    const totalFixed = fixed.reduce((s, t) => s + t.amount, 0);
+    const totalVariable = variable.reduce((s, t) => s + t.amount, 0);
+    const totalExp = totalFixed + totalVariable;
+
+    const fixedPct = totalExp > 0 ? Math.round(totalFixed / totalExp * 100) : 0;
+    const variablePct = totalExp > 0 ? Math.round(totalVariable / totalExp * 100) : 0;
+
+    document.getElementById("fixedCostValue").textContent = fmtAmt(totalFixed);
+    document.getElementById("fixedCostPct").textContent = fixedPct + "%";
+    document.getElementById("variableCostValue").textContent = fmtAmt(totalVariable);
+    document.getElementById("variableCostPct").textContent = variablePct + "%";
+
+    document.getElementById("ratioFixed").style.width = fixedPct + "%";
+    document.getElementById("ratioVariable").style.width = variablePct + "%";
+
+    // 이슈 감지
+    let issues = [];
+    if (fixedPct > 50) {
+        issues.push({
+            type: "warning",
+            title: "⚠️ 고정비 비율 높음",
+            desc: "고정비가 ' + fixedPct + '%를 넘었습니다. 생활비 최적화를 고려해보세요."
+        });
+    }
+    if (variable.filter(t => t.category === "구독").length > 0 && variable.filter(t => t.category === "구독").length >= 2) {
+        issues.push({
+            type: "info",
+            title: "💡 구독 서비스 확인",
+            desc: "활성 구독 서비스가 ' + variable.filter(t => t.category === "구독").length + '개입니다. 불필요한 구독 확인을 권장합니다."
+        });
+    }
+    const totalCost = totalFixed + totalVariable;
+    if (totalCost > 5000000) {
+        issues.push({
+            type: "danger",
+            title: "🚨 월간 지출 초과",
+            desc: "월간 지출이 500만원을 초과했습니다. 지출 패턴을 점검해주세요."
+        });
+    }
+
+    const issueHtml = issues.length > 0 ? issues.map(issue =>
+        '<div class="issue-card ' + issue.type + '">' +
+            '<div class="issue-title">' + issue.title + '</div>' +
+            '<div class="issue-desc">' + issue.desc + '</div>' +
+        '</div>'
+    ).join("") : '';
+    document.getElementById("issueCards").innerHTML = issueHtml;
+}
+
+// ===== 바차트: 일별 지출 =====
+function renderBarChart(txs) {
+    const card = document.getElementById("barChartCard");
+    if (currentView === "today") { card.style.display = "none"; return; }
+    card.style.display = "";
+
+    const exp = txs.filter(t => t.type === "지출");
+    const byDay = {};
+    exp.forEach(t => { byDay[t.date] = (byDay[t.date] || 0) + t.amount; });
+
+    const dates = Object.keys(byDay).sort();
+    if (dates.length === 0) { card.style.display = "none"; return; }
+
+    const max = Math.max(...Object.values(byDay));
+    const todayStr = new Date().toISOString().slice(0, 10);
+
+    document.getElementById("barChart").innerHTML = dates.map(d => {
+        const amt = byDay[d];
+        const pct = max > 0 ? (amt / max * 85) : 0;
+        const isToday = d === todayStr;
+        const label = d.slice(5).replace("-", "/");
+        return '<div class="bar-col">' +
+            '<div class="bar-val">' + (amt >= 10000 ? Math.round(amt / 10000) + '만' : fmtNum(amt)) + '</div>' +
+            '<div class="bar' + (isToday ? ' today-bar' : '') + '" style="height:' + pct + '%"></div>' +
+            '<div class="bar-label">' + label + '</div>' +
+        '</div>';
+    }).join("");
+}
+
+// ===== 파이차트: 카테고리 =====
+function renderPieChart(txs) {
+    const card = document.getElementById("pieChartCard");
+    const exp = txs.filter(t => t.type === "지출");
+    const cats = {};
+    exp.forEach(t => { cats[t.category] = (cats[t.category] || 0) + t.amount; });
+    const sorted = Object.entries(cats).sort((a, b) => b[1] - a[1]);
+    const total = sorted.reduce((s, e) => s + e[1], 0);
+
+    if (sorted.length === 0) { card.style.display = "none"; return; }
+    card.style.display = "";
+
+    // SVG 도넛
+    let cumPct = 0;
+    const radius = 15.9155;
+    const circumference = 2 * Math.PI * radius;
+    let paths = '';
+    sorted.forEach(([cat, amt]) => {
+        const pct = amt / total * 100;
+        const dashLen = pct * circumference / 100;
+        const dashOff = -cumPct * circumference / 100;
+        const color = CAT_COLORS[cat] || "#adb5bd";
+        paths += '<circle cx="21" cy="21" r="' + radius + '" fill="none" stroke="' + color + '" stroke-width="6" ' +
+            'stroke-dasharray="' + dashLen + ' ' + (circumference - dashLen) + '" ' +
+            'stroke-dashoffset="' + dashOff + '" />';
+        cumPct += pct;
+    });
+    document.getElementById("pieSvg").innerHTML =
+        '<circle cx="21" cy="21" r="' + radius + '" fill="none" stroke="#f1f3f4" stroke-width="6" />' + paths;
+
+    document.getElementById("pieLegend").innerHTML = sorted.slice(0, 6).map(([cat, amt]) => {
+        const pct = (amt / total * 100).toFixed(0);
+        return '<div class="pie-legend-item">' +
+            '<span class="pie-legend-dot" style="background:' + (CAT_COLORS[cat] || "#adb5bd") + '"></span>' +
+            '<span class="pie-legend-name">' + cat + '</span>' +
+            '<span class="pie-legend-val">' + fmtAmt(amt) + '</span>' +
+            '<span class="pie-legend-pct">' + pct + '%</span>' +
+        '</div>';
+    }).join("");
+}
+
+// ===== 카테고리 리스트 =====
+function renderCategories(txs) {
+    const sec = document.getElementById("catSection");
+    const exp = txs.filter(t => t.type === "지출");
+    const cats = {};
+    exp.forEach(t => { cats[t.category] = (cats[t.category] || 0) + t.amount; });
+    const sorted = Object.entries(cats).sort((a, b) => b[1] - a[1]);
+    const max = sorted.length > 0 ? sorted[0][1] : 1;
+
+    if (sorted.length === 0) { sec.style.display = "none"; return; }
+    sec.style.display = "";
+    document.getElementById("catCount").textContent = sorted.length + "개";
+    document.getElementById("catList").innerHTML = sorted.map(([cat, amt]) => {
+        const color = CAT_COLORS[cat] || "#adb5bd";
+        return '<div class="cat-item">' +
+            '<div class="cat-top"><span class="cat-name">' + (CAT_ICONS[cat] || "📦") + ' ' + cat + '</span>' +
+            '<span class="cat-amount">' + fmtAmt(amt) + '</span></div>' +
+            '<div class="cat-bar"><div class="cat-bar-fill" style="width:' + (amt / max * 100) + '%;background:' + color + '"></div></div>' +
+        '</div>';
+    }).join("");
+}
+
+// ===== 중복 감지 배너 =====
+function renderDuplicates(txs) {
+    const duplicates = txs.filter(t => t.is_duplicate);
+    const banner = document.getElementById("duplicateBanner");
+    if (duplicates.length > 0) {
+        banner.textContent = "🔄 " + duplicates.length + "건 중복 의심 — 확인 필요";
+        banner.classList.add("show");
+    } else {
+        banner.classList.remove("show");
+    }
+}
+
+// ===== 거래 리스트 =====
+function renderTransactions(txs) {
+    const count = document.getElementById("txCount");
+    count.textContent = txs.length + "건";
+
+    if (txs.length === 0) {
+        document.getElementById("txList").innerHTML =
+            '<div class="empty"><div class="icon">📭</div><div class="msg">거래 내역이 없습니다</div></div>';
+        return;
+    }
+    const sorted = [...txs].sort((a, b) => {
+        const d = b.date.localeCompare(a.date);
+        return d !== 0 ? d : (b.time || "").localeCompare(a.time || "");
+    });
+    document.getElementById("txList").innerHTML = sorted.map(t => {
+        const cls = t.type === "입금" ? "income" : t.type === "이체" ? "transfer" : "expense";
+        const sign = t.type === "입금" ? "+" : t.type === "이체" ? "" : "-";
+        const iconCls = CAT_ICON_CLASS[t.category] || "etc";
+        const icon = CAT_ICONS[t.category] || "📦";
+        const duplicateBadge = t.is_duplicate ? '<span class="tx-duplicate-badge">중복 의심</span>' : '';
+        const costTypeBadge = t.type === "지출" ? '<span class="tx-cost-type-badge ' + (t.cost_type === "고정비" ? "fixed" : "variable") + '">' + t.cost_type + '</span>' : '';
+        const sourceBadge = '<span class="tx-source-badge">' + t.source + '</span>';
+
+        return '<div class="tx-item ' + (t.is_duplicate ? 'duplicate' : '') + '">' +
+            '<div class="tx-left">' +
+                '<div class="tx-icon ' + iconCls + '">' + icon + '</div>' +
+                '<div class="tx-info">' +
+                    '<div class="tx-store">' + (t.store || "알수없음") + '</div>' +
+                    '<div class="tx-meta">' + t.date.slice(5) + ' ' + (t.time || "") + ' · ' + (t.card || "") + ' · ' + t.category + '</div>' +
+                '</div>' +
+            '</div>' +
+            '<div class="tx-right">' +
+                '<div class="tx-amount ' + cls + (t.is_duplicate ? ' strikethrough' : '') + '">' + sign + fmtNum(t.amount) + '원</div>' +
+                '<div>' +
+                    '<span class="tx-type-badge ' + cls + '">' + t.type + '</span>' +
+                    duplicateBadge +
+                    costTypeBadge +
+                    sourceBadge +
+                '</div>' +
+            '</div>' +
+        '</div>';
+    }).join("");
+}
+
+// ===== 제외 거래 뷰 =====
+function renderExcluded() {
+    const excluded = allTransactions.filter(t => t.is_excluded);
+    const totalAmount = excluded.reduce((s, t) => s + t.amount, 0);
+
+    document.getElementById("excludedCount").textContent = excluded.length + "건";
+
+    if (excluded.length === 0) {
+        document.getElementById("excludedList").innerHTML =
+            '<div class="empty"><div class="icon">✅</div><div class="msg">제외된 거래가 없습니다</div></div>';
+        return;
+    }
+
+    const sorted = [...excluded].sort((a, b) => b.date.localeCompare(a.date));
+    document.getElementById("excludedList").innerHTML =
+        '<div style="padding:8px 0;font-size:0.85rem;color:#5f6368;margin-bottom:12px;">' +
+            '총 ' + fmtAmt(totalAmount) + ' (' + excluded.length + '건)' +
+        '</div>' +
+        sorted.map(t => {
+            const cls = t.type === "입금" ? "income" : "transfer";
+            const sign = t.type === "입금" ? "+" : "";
+            const iconCls = CAT_ICON_CLASS[t.category] || "etc";
+            const icon = CAT_ICONS[t.category] || "📦";
+            return '<div class="tx-item">' +
+                '<div class="tx-left">' +
+                    '<div class="tx-icon ' + iconCls + '">' + icon + '</div>' +
+                    '<div class="tx-info">' +
+                        '<div class="tx-store">' + (t.store || "알수없음") + '</div>' +
+                        '<div class="tx-meta">' + t.date.slice(5) + ' · ' + t.exclude_type + '</div>' +
+                    '</div>' +
+                '</div>' +
+                '<div class="tx-right">' +
+                    '<div class="tx-amount ' + cls + '">' + sign + fmtNum(t.amount) + '원</div>' +
+                    '<button class="tx-action-btn" onclick="restoreExcluded(' + t.id + ')">복원</button>' +
+                '</div>' +
+            '</div>';
+        }).join("");
+}
+
+// ===== 제외 해제 =====
+function restoreExcluded(txId) {
+    const tx = allTransactions.find(t => t.id === txId);
+    if (tx) {
+        tx.is_excluded = false;
+        tx.exclude_type = "none";
+        render();
+    }
+}
+
+// ===== 중복 처리 =====
+function deleteDuplicate(txId) {
+    const idx = allTransactions.findIndex(t => t.id === txId);
+    if (idx >= 0) {
+        allTransactions.splice(idx, 1);
+        render();
+    }
+}
+
+function keepTransaction(txId) {
+    const tx = allTransactions.find(t => t.id === txId);
+    if (tx) {
+        tx.is_duplicate = false;
+        render();
+    }
+}
+
+// ===== 수동 입력 모달 =====
+let selectedType = "지출";
+
+function openModal() {
+    document.getElementById("modalOverlay").classList.add("show");
+}
+function closeModal() {
+    document.getElementById("modalOverlay").classList.remove("show");
+    ["inpAmount","inpCard","inpStore"].forEach(id => document.getElementById(id).value = "");
+    document.getElementById("inpCat").selectedIndex = 0;
+    document.getElementById("inpCostType").selectedIndex = 0;
+    document.getElementById("pasteArea").value = "";
+    selectedType = "지출";
+    document.querySelectorAll(".type-btn").forEach((b,i) => b.classList.toggle("selected", i===0));
+}
+
+function switchInputTab(el, tab) {
+    document.querySelectorAll(".input-tab").forEach(t => t.classList.remove("active"));
+    el.classList.add("active");
+    document.getElementById("inputForm").style.display = tab === "form" ? "" : "none";
+    document.getElementById("inputPaste").style.display = tab === "paste" ? "" : "none";
+    document.getElementById("inputImage").style.display = tab === "image" ? "" : "none";
+}
+
+function selectType(el, type) {
+    selectedType = type;
+    document.querySelectorAll(".type-btn").forEach(b => b.classList.remove("selected"));
+    el.classList.add("selected");
+}
+
+async function submitManual() {
+    const amount = parseInt(document.getElementById("inpAmount").value);
+    if (!amount || amount <= 0) { alert("금액을 입력해주세요"); return; }
+    const store = document.getElementById("inpStore").value.trim() || "직접입력";
+    const card = document.getElementById("inpCard").value.trim() || "기타";
+    const category = document.getElementById("inpCat").value;
+    const costType = document.getElementById("inpCostType").value;
+    const now = new Date();
+    const tx = {
+        store, amount, card, category, type: selectedType, cost_type: costType,
+        date: now.toISOString().slice(0,10),
+        time: String(now.getHours()).padStart(2,"0") + ":" + String(now.getMinutes()).padStart(2,"0"),
+        member: "은재", parsed: true, source: "manual",
+        is_excluded: false, exclude_type: "none", is_duplicate: false
+    };
+    try {
+        const res = await fetch(API_BASE + "/api/sms", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(tx)
+        });
+        if (res.ok) {
+            closeModal();
+            await fetchTransactions();
+        } else {
+            alert("등록 실패: 서버 응답 " + res.status);
+        }
+    } catch(e) {
+        alert("서버 연결 실패. 나중에 다시 시도해주세요.");
+    }
+}
+
+async function submitPaste() {
+    const text = document.getElementById("pasteArea").value.trim();
+    if (!text) { alert("문자 내용을 붙여넣기 해주세요"); return; }
+    try {
+        const res = await fetch(API_BASE + "/api/sms?message=" + encodeURIComponent(text));
+        if (res.ok) {
+            closeModal();
+            await fetchTransactions();
+        } else {
+            alert("파싱 실패: 서버 응답 " + res.status);
+        }
+    } catch(e) {
+        alert("서버 연결 실패. 나중에 다시 시도해주세요.");
+    }
+}
+
+// ===== 로드맵 =====
+function renderRoadmap() {
+    const items = [
+        {
+            ver: "v2.1", name: "기본 현황판", active: true,
+            desc: "지출·입금 요약 카드, 카테고리 바, 거래 리스트, Render API 실시간 연동",
+            modules: [
+                { tag: "①Collector", role: "SMS 알림 수신 (Macrodroid → HTTP GET)" },
+                { tag: "②Parser", role: "카드사 문자 파싱 (멀티라인+한줄)" },
+                { tag: "③Storage", role: "JSON 파일 저장" },
+                { tag: "⑥Dashboard", role: "기본 KPI + 거래 리스트 표시" },
+                { tag: "⑦Alerter", role: "텔레그램 그룹 알림 발송" }
+            ]
+        },
+        {
+            ver: "v2.5", name: "시각화 강화", active: true,
+            desc: "카테고리 파이차트, 일별 바차트, 건당 평균·순수지 KPI, 샘플 데이터 자동 전환, 수동 입력 모달(직접입력·문자붙여넣기)",
+            modules: [
+                { tag: "⑥Dashboard", role: "종합형 차트 + 탭 UI + 수동 입력 지원" },
+                { tag: "④Analyzer", role: "일별/카테고리별 집계 로직" },
+                { tag: "⑤Normalizer", role: "비용구분 필드 추가 (변동비/고정비)" }
+            ]
+        },
+        {
+            ver: "v3.0", name: "통합형 대시보드 ← 현재", active: true,
+            desc: "고정비/변동비 자동 분류, 중복 거래 감지, 제외 거래 필터 (이체·송금·환불 자동 제외)",
+            modules: [
+                { tag: "③Storage", role: "is_excluded, exclude_type, cost_type, is_duplicate 필드 추가" },
+                { tag: "④Analyzer", role: "중복 감지 (날짜+금액), 제외 키워드 자동 감지" },
+                { tag: "⑤Normalizer", role: "카테고리 → 고정비/변동비 자동 매핑 (생활·구독·통신 → 고정비)" },
+                { tag: "⑥Dashboard", role: "고정비/변동비 비율 카드, 이슈 감지 (고정비>50%), 중복 배너, 제외 탭, cost_type 태그 표시" }
+            ],
+            blueprint: "고정비(관리비·통신비·구독·보험) vs 변동비(식비·쇼핑·유흥·교통) 체계 완성"
+        },
+        {
+            ver: "v4.0", name: "스마트 분석", active: false,
+            desc: "카테고리별 월간 추이 히트맵, 이상 지출 감지(평균 대비 급증), 절약 리포트, 주간/월간 자동 생성",
+            modules: [
+                { tag: "④Analyzer", role: "이상감지 알고리즘, 추이 분석, 리포트 자동 생성" },
+                { tag: "⑤Normalizer", role: "월간 트렌드 정규화, 시계열 데이터 정제" },
+                { tag: "⑥Dashboard", role: "히트맵, 추이 차트, 리포트 뷰어" },
+                { tag: "⑦Alerter", role: "이상지출 즉시 알림, 주간/월간 리포트 발송" }
+            ]
+        },
+        {
+            ver: "v5.0", name: "자산 통합", active: false,
+            desc: "총 자산 현황(계좌 잔고, 카드 결제 예정), 프랍트레이딩 수익 연동, 투자 포트폴리오 요약, 연간 자산 증감 차트",
+            modules: [
+                { tag: "①Collector", role: "은행 API / 자산관리앱 연동 수신" },
+                { tag: "②Parser", role: "계좌·투자 데이터 파싱" },
+                { tag: "③Storage", role: "자산 스냅샷 시계열 저장" },
+                { tag: "④Analyzer", role: "자산 증감 분석, 포트폴리오 수익률" },
+                { tag: "⑤Normalizer", role: "다중 소스 자산 데이터 통합·정규화" },
+                { tag: "⑥Dashboard", role: "총 자산 현황판, 자산 추이 차트" },
+                { tag: "⑦Alerter", role: "자산 변동 알림, 프랍 수익 리포트" }
+            ]
+        }
+    ];
+    document.getElementById("roadmapSection").innerHTML =
+        '<div class="section-title" style="padding:0 0 12px;">버전 로드맵 <span class="badge">v2.1 → v5.0</span></div>' +
+        items.map((it, i) =>
+            '<div class="roadmap-item">' +
+                '<div class="roadmap-dot-col">' +
+                    '<div class="roadmap-dot ' + (it.active ? 'active' : 'future') + '"></div>' +
+                    (i < items.length - 1 ? '<div class="roadmap-line"></div>' : '') +
+                '</div>' +
+                '<div class="roadmap-content">' +
+                    '<div class="roadmap-ver ' + (it.active ? '' : 'future-ver') + '">' + it.ver + '</div>' +
+                    '<div class="roadmap-name">' + it.name + '</div>' +
+                    '<div class="roadmap-desc">' + it.desc + '</div>' +
+                    (it.blueprint ? '<div style="font-size:0.7rem;color:#845ef7;margin-top:6px;padding:6px 8px;background:#f3f0ff;border-radius:6px;">📋 ' + it.blueprint + '</div>' : '') +
+                    '<div class="roadmap-modules">' +
+                        it.modules.map(m =>
+                            '<span title="' + m.role + '">' + m.tag + '</span>'
+                        ).join("") +
+                    '</div>' +
+                    '<div style="font-size:0.65rem;color:#80868b;margin-top:4px;line-height:1.5;">' +
+                        it.modules.map(m => m.tag + ': ' + m.role).join('<br>') +
+                    '</div>' +
+                '</div>' +
+            '</div>'
+        ).join("");
+}
+
+// ===== 유틸 =====
+function fmtNum(n) { return n.toLocaleString(); }
+function fmtAmt(n) {
+    if (Math.abs(n) >= 10000) return (n < 0 ? '-' : '') + Math.round(Math.abs(n) / 10000).toLocaleString() + '만원';
+    return fmtNum(n) + '원';
+}
+
+function switchTab(el) {
+    document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+    el.classList.add("active");
+    currentView = el.dataset.view;
+    render();
+}
+
+async function refreshData() {
+    const btn = document.getElementById("refreshBtn");
+    btn.innerHTML = '<span class="spin">&#x21bb;</span>';
+    await fetchTransactions();
+    setTimeout(() => { btn.innerHTML = "&#x21bb;"; }, 500);
+}
+
+// ===== 초기화 =====
+// 페이지 열 때 1회만 로드 (토큰/트래픽 절약)
+// 실시간 폴링 대신 수동 새로고침 버튼 사용
+fetchTransactions();
+</script>
+
+</body>
+</html>
