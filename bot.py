@@ -33,6 +33,147 @@ CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")  # 텔레그램 알림 보낼 �
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
 log = logging.getLogger("가계부봇")
 
+# ============================================================
+# 대시보드 HTML (웹 UI)
+# ============================================================
+DASHBOARD_HTML = """<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>가계부 CMS</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; background:#0f172a; color:#e2e8f0; min-height:100vh; }
+.header { background:linear-gradient(135deg,#1e293b,#334155); padding:20px; text-align:center; border-bottom:2px solid #3b82f6; }
+.header h1 { font-size:1.5rem; color:#60a5fa; }
+.header p { font-size:0.85rem; color:#94a3b8; margin-top:4px; }
+.cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:12px; padding:16px; }
+.card { background:#1e293b; border-radius:12px; padding:16px; text-align:center; border:1px solid #334155; }
+.card .label { font-size:0.75rem; color:#94a3b8; margin-bottom:6px; }
+.card .value { font-size:1.4rem; font-weight:700; color:#f1f5f9; }
+.card .value.income { color:#34d399; }
+.card .value.expense { color:#f87171; }
+.section { padding:0 16px 16px; }
+.section h2 { font-size:1rem; color:#94a3b8; margin-bottom:10px; padding-bottom:6px; border-bottom:1px solid #334155; }
+.cat-bar { display:flex; align-items:center; margin-bottom:8px; }
+.cat-bar .name { width:60px; font-size:0.8rem; color:#cbd5e1; }
+.cat-bar .bar-bg { flex:1; height:22px; background:#1e293b; border-radius:6px; overflow:hidden; margin:0 8px; }
+.cat-bar .bar-fill { height:100%; border-radius:6px; background:linear-gradient(90deg,#3b82f6,#60a5fa); transition:width 0.5s; }
+.cat-bar .amt { font-size:0.8rem; color:#94a3b8; width:80px; text-align:right; }
+.tx-list { list-style:none; }
+.tx-item { background:#1e293b; border-radius:10px; padding:12px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center; border:1px solid #334155; }
+.tx-left .store { font-size:0.9rem; font-weight:600; color:#f1f5f9; }
+.tx-left .meta { font-size:0.75rem; color:#64748b; margin-top:2px; }
+.tx-right .amount { font-size:1rem; font-weight:700; }
+.tx-right .amount.expense { color:#f87171; }
+.tx-right .amount.income { color:#34d399; }
+.tx-right .cat { font-size:0.7rem; color:#64748b; text-align:right; margin-top:2px; }
+.refresh-btn { display:block; margin:16px auto; padding:10px 24px; background:#3b82f6; color:white; border:none; border-radius:8px; font-size:0.9rem; cursor:pointer; }
+.refresh-btn:active { background:#2563eb; }
+.empty { text-align:center; color:#64748b; padding:40px 16px; font-size:0.9rem; }
+.loading { text-align:center; color:#64748b; padding:40px; }
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>가계부 CMS v2.1</h1>
+  <p id="statusText">로딩 중...</p>
+</div>
+<div class="cards" id="summaryCards"></div>
+<div class="section" id="catSection" style="display:none">
+  <h2>카테고리별 지출</h2>
+  <div id="catBars"></div>
+</div>
+<div class="section">
+  <h2>최근 거래 내역</h2>
+  <ul class="tx-list" id="txList"><li class="loading">데이터 불러오는 중...</li></ul>
+</div>
+<button class="refresh-btn" onclick="loadData()">새로고침</button>
+
+<script>
+const API = window.location.origin;
+
+function formatMoney(n) {
+  return n.toLocaleString('ko-KR') + '원';
+}
+
+function getToday() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+
+function getMonth() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+}
+
+async function loadData() {
+  try {
+    const res = await fetch(API + '/api/transactions');
+    const txs = await res.json();
+
+    const today = getToday();
+    const month = getMonth();
+    const todayTxs = txs.filter(t => t.date === today && t.type !== '입금');
+    const monthTxs = txs.filter(t => t.date && t.date.startsWith(month) && t.type !== '입금');
+    const todayTotal = todayTxs.reduce((s,t) => s + t.amount, 0);
+    const monthTotal = monthTxs.reduce((s,t) => s + t.amount, 0);
+
+    // 요약 카드
+    document.getElementById('summaryCards').innerHTML =
+      '<div class="card"><div class="label">오늘 지출</div><div class="value expense">' + formatMoney(todayTotal) + '</div></div>' +
+      '<div class="card"><div class="label">이번달 지출</div><div class="value expense">' + formatMoney(monthTotal) + '</div></div>' +
+      '<div class="card"><div class="label">이번달 건수</div><div class="value">' + monthTxs.length + '건</div></div>' +
+      '<div class="card"><div class="label">전체 기록</div><div class="value">' + txs.length + '건</div></div>';
+
+    // 카테고리별 지출
+    const cats = {};
+    monthTxs.forEach(t => { cats[t.category] = (cats[t.category]||0) + t.amount; });
+    const catEntries = Object.entries(cats).sort((a,b) => b[1]-a[1]);
+    const maxCat = catEntries.length > 0 ? catEntries[0][1] : 1;
+
+    if (catEntries.length > 0) {
+      document.getElementById('catSection').style.display = 'block';
+      document.getElementById('catBars').innerHTML = catEntries.map(([name, amt]) =>
+        '<div class="cat-bar">' +
+        '<span class="name">' + name + '</span>' +
+        '<div class="bar-bg"><div class="bar-fill" style="width:' + (amt/maxCat*100) + '%"></div></div>' +
+        '<span class="amt">' + formatMoney(amt) + '</span></div>'
+      ).join('');
+    }
+
+    // 최근 거래 (최신 20건)
+    const recent = txs.slice(-20).reverse();
+    const listEl = document.getElementById('txList');
+    if (recent.length === 0) {
+      listEl.innerHTML = '<li class="empty">아직 기록된 거래가 없습니다</li>';
+    } else {
+      listEl.innerHTML = recent.map(t => {
+        const isIncome = t.type === '입금';
+        return '<li class="tx-item">' +
+          '<div class="tx-left">' +
+          '<div class="store">' + (t.store||'알수없음') + '</div>' +
+          '<div class="meta">' + t.date + ' | ' + (t.card||'기타') + '카드</div></div>' +
+          '<div class="tx-right">' +
+          '<div class="amount ' + (isIncome?'income':'expense') + '">' + (isIncome?'+':'-') + formatMoney(t.amount) + '</div>' +
+          '<div class="cat">' + (t.category||'기타') + '</div></div></li>';
+      }).join('');
+    }
+
+    document.getElementById('statusText').textContent = '마지막 업데이트: ' + new Date().toLocaleTimeString('ko-KR');
+  } catch(e) {
+    document.getElementById('txList').innerHTML = '<li class="empty">데이터를 불러올 수 없습니다</li>';
+    document.getElementById('statusText').textContent = '연결 실패';
+  }
+}
+
+loadData();
+setInterval(loadData, 60000);
+</script>
+</body>
+</html>"""
+
 
 # ============================================================
 # ② Parser 설정값 (여기만 수정하면 됨)
@@ -490,11 +631,11 @@ class Handler(BaseHTTPRequestHandler):
             self.wfile.write("OK".encode("utf-8"))
             return
 
-        # 기본 페이지
+        # 대시보드 페이지
         self.send_response(200)
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.end_headers()
-        self.wfile.write("🏠 가계부 봇 서버 가동 중!".encode("utf-8"))
+        self.wfile.write(DASHBOARD_HTML.encode("utf-8"))
 
     def do_POST(self):
         # Telegram Webhook
