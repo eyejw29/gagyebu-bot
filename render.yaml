@@ -1,0 +1,13 @@
+services:
+  - type: web
+      name: gagyebu-bot
+          runtime: python
+              buildCommand: echo "No build needed"
+                  startCommand: python bot.py
+                      envVars:
+                            - key: TELEGRAM_BOT_TOKEN
+                                    sync: false
+                                          - key: BASE_URL
+                                                  sync: false
+                                                        - key: PORT
+                                                                value: 10000
