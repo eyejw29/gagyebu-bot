@@ -457,6 +457,39 @@ class Handler(BaseHTTPRequestHandler):
             self.wfile.write(json.dumps(status).encode("utf-8"))
             return
 
+        # GET 방식 SMS 수신 (Macrodroid 웹사이트 열기용)
+        # URL: /api/sms?text=금액 60,000원...
+        if parsed.path == "/api/sms":
+            params = parse_qs(parsed.query)
+            sms_text = params.get("text", [""])[0]
+            log.info(f"SMS GET 수신: {sms_text[:100]}")
+
+            if sms_text:
+                tx = parse_sms(sms_text)
+                if tx["parsed"] and tx["amount"] > 0:
+                    saved = save_transaction(tx)
+                    if CHAT_ID:
+                        type_config = {
+                            "입금": ("💵", "입금 기록 완료!"),
+                            "이체": ("🔄", "이체 기록 완료!"),
+                            "지출": ("✅", "기록 완료!"),
+                        }
+                        emoji, label = type_config.get(saved["type"], ("✅", "기록 완료!"))
+                        send_message(CHAT_ID, (
+                            f"{emoji} <b>{label}</b>\n\n"
+                            f"🏪 {saved['store']}\n"
+                            f"💳 {saved['card']}카드\n"
+                            f"💰 {saved['amount']:,}원\n"
+                            f"📂 {saved['category']}\n"
+                            f"📅 {saved['date']}"
+                        ))
+
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.end_headers()
+            self.wfile.write("OK".encode("utf-8"))
+            return
+
         # 기본 페이지
         self.send_response(200)
         self.send_header("Content-Type", "text/html; charset=utf-8")
