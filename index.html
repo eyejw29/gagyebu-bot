@@ -355,6 +355,129 @@
         .roadmap-ver.future-ver { color: #80868b; }
         .roadmap-name { font-size: 0.85rem; font-weight: 600; color: #202124; margin-bottom: 4px; }
         .roadmap-desc { font-size: 0.72rem; color: #5f6368; line-height: 1.4; }
+        .roadmap-modules { font-size: 0.65rem; color: #1a73e8; margin-top: 4px; line-height: 1.5; }
+        .roadmap-modules span { background: #e8f0fe; padding: 1px 6px; border-radius: 4px; margin-right: 3px; display: inline-block; margin-bottom: 2px; }
+
+        /* 수동 입력 버튼 */
+        .add-btn {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            width: 44px; height: 44px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #34a853, #0d652d);
+            color: white;
+            border: none;
+            font-size: 1.4rem;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(52,168,83,0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 20;
+        }
+
+        /* 모달 */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 100;
+            align-items: flex-end;
+            justify-content: center;
+        }
+        .modal-overlay.show { display: flex; }
+        .modal {
+            background: white;
+            border-radius: 16px 16px 0 0;
+            width: 100%;
+            max-width: 480px;
+            max-height: 85vh;
+            overflow-y: auto;
+            padding: 20px 16px 32px;
+        }
+        .modal-title {
+            font-size: 1rem;
+            font-weight: 700;
+            margin-bottom: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 1.2rem;
+            cursor: pointer;
+            color: #80868b;
+            padding: 4px;
+        }
+        .input-group { margin-bottom: 12px; }
+        .input-label { font-size: 0.75rem; font-weight: 600; color: #5f6368; margin-bottom: 4px; display: block; }
+        .input-field {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #dadce0;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            outline: none;
+        }
+        .input-field:focus { border-color: #1a73e8; box-shadow: 0 0 0 2px #e8f0fe; }
+        .input-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .type-btns { display: flex; gap: 6px; }
+        .type-btn {
+            flex: 1;
+            padding: 8px;
+            border: 1px solid #dadce0;
+            border-radius: 8px;
+            background: white;
+            font-size: 0.78rem;
+            cursor: pointer;
+            text-align: center;
+            font-weight: 500;
+        }
+        .type-btn.selected { border-color: #1a73e8; background: #e8f0fe; color: #1a73e8; }
+        .submit-btn {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #0f0c29, #302b63);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 8px;
+        }
+        .submit-btn:active { opacity: 0.8; }
+        .input-tabs { display: flex; gap: 0; margin-bottom: 16px; border-radius: 8px; overflow: hidden; border: 1px solid #dadce0; }
+        .input-tab {
+            flex: 1;
+            padding: 8px;
+            text-align: center;
+            font-size: 0.78rem;
+            font-weight: 500;
+            cursor: pointer;
+            background: white;
+            color: #5f6368;
+            border: none;
+        }
+        .input-tab.active { background: #1a73e8; color: white; }
+        .paste-area {
+            width: 100%;
+            min-height: 100px;
+            padding: 12px;
+            border: 2px dashed #dadce0;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            color: #80868b;
+            text-align: center;
+            line-height: 1.6;
+            resize: vertical;
+            font-family: inherit;
+        }
+        .paste-area:focus { border-color: #1a73e8; color: #1a1a2e; text-align: left; }
     </style>
 </head>
 <body>
@@ -362,6 +485,7 @@
 <div class="header">
     <h1>가계부 CMS</h1>
     <div class="version">⑥ Dashboard v2.5 — 종합형 대시보드</div>
+    <div style="font-size:0.68rem;opacity:0.6;margin-top:6px;line-height:1.4;">월별 지출 · 입금 · 순수지 흐름 관리<br>총 자산 연결은 v5.0에서 진행 예정</div>
 </div>
 
 <div class="status-bar">
@@ -416,7 +540,81 @@
     </div>
 </div>
 
+<button class="add-btn" id="addBtn" onclick="openModal()">+</button>
 <button class="refresh-btn" id="refreshBtn" onclick="refreshData()">&#x21bb;</button>
+
+<!-- 수동 입력 모달 -->
+<div class="modal-overlay" id="modalOverlay" onclick="if(event.target===this)closeModal()">
+    <div class="modal">
+        <div class="modal-title">거래 직접 입력 <button class="modal-close" onclick="closeModal()">&times;</button></div>
+        <div class="input-tabs">
+            <div class="input-tab active" onclick="switchInputTab(this,'form')">직접 입력</div>
+            <div class="input-tab" onclick="switchInputTab(this,'paste')">문자 붙여넣기</div>
+            <div class="input-tab" onclick="switchInputTab(this,'image')">이미지 (v3)</div>
+        </div>
+
+        <!-- 직접 입력 폼 -->
+        <div id="inputForm">
+            <div class="input-group">
+                <label class="input-label">거래유형</label>
+                <div class="type-btns">
+                    <div class="type-btn selected" onclick="selectType(this,'지출')">지출</div>
+                    <div class="type-btn" onclick="selectType(this,'입금')">입금</div>
+                    <div class="type-btn" onclick="selectType(this,'이체')">이체</div>
+                </div>
+            </div>
+            <div class="input-row">
+                <div class="input-group">
+                    <label class="input-label">금액</label>
+                    <input class="input-field" id="inpAmount" type="number" placeholder="35000">
+                </div>
+                <div class="input-group">
+                    <label class="input-label">카드</label>
+                    <input class="input-field" id="inpCard" type="text" placeholder="신한">
+                </div>
+            </div>
+            <div class="input-group">
+                <label class="input-label">사용처</label>
+                <input class="input-field" id="inpStore" type="text" placeholder="스타벅스">
+            </div>
+            <div class="input-row">
+                <div class="input-group">
+                    <label class="input-label">카테고리</label>
+                    <select class="input-field" id="inpCat">
+                        <option>식비</option><option>카페</option><option>교통</option>
+                        <option>쇼핑</option><option>생활</option><option>의료</option>
+                        <option>구독</option><option>통신</option><option>유흥</option><option>기타</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label class="input-label">비용구분</label>
+                    <select class="input-field" id="inpCostType">
+                        <option>변동비</option><option>고정비</option>
+                    </select>
+                </div>
+            </div>
+            <button class="submit-btn" onclick="submitManual()">등록하기</button>
+        </div>
+
+        <!-- 문자 붙여넣기 -->
+        <div id="inputPaste" style="display:none">
+            <div class="input-group">
+                <label class="input-label">카드 문자 내용을 그대로 붙여넣기</label>
+                <textarea class="paste-area" id="pasteArea" placeholder="예시:&#10;[신한] 승인 35,000원 스타벅스 03/29&#10;&#10;또는 카드사 알림 문자를 그대로 복사해서 붙여넣기"></textarea>
+            </div>
+            <button class="submit-btn" onclick="submitPaste()">파싱 후 등록</button>
+        </div>
+
+        <!-- 이미지 (v3 예정) -->
+        <div id="inputImage" style="display:none">
+            <div class="empty" style="padding:32px 0">
+                <div class="icon">📷</div>
+                <div class="msg">이미지 업로드는 v3.0에서 지원 예정</div>
+                <div style="font-size:0.72rem;color:#80868b;margin-top:8px">영수증/카드 문자 캡처 → OCR 자동 파싱</div>
+            </div>
+        </div>
+    </div>
+</div>
 
 <script>
 /* ============================================================
@@ -733,14 +931,144 @@ function renderTransactions(txs) {
     }).join("");
 }
 
+// ===== 수동 입력 모달 =====
+let selectedType = "지출";
+
+function openModal() {
+    document.getElementById("modalOverlay").classList.add("show");
+}
+function closeModal() {
+    document.getElementById("modalOverlay").classList.remove("show");
+    // 폼 초기화
+    ["inpAmount","inpCard","inpStore"].forEach(id => document.getElementById(id).value = "");
+    document.getElementById("inpCat").selectedIndex = 0;
+    document.getElementById("inpCostType").selectedIndex = 0;
+    document.getElementById("pasteArea").value = "";
+    selectedType = "지출";
+    document.querySelectorAll(".type-btn").forEach((b,i) => b.classList.toggle("selected", i===0));
+}
+
+function switchInputTab(el, tab) {
+    document.querySelectorAll(".input-tab").forEach(t => t.classList.remove("active"));
+    el.classList.add("active");
+    document.getElementById("inputForm").style.display = tab === "form" ? "" : "none";
+    document.getElementById("inputPaste").style.display = tab === "paste" ? "" : "none";
+    document.getElementById("inputImage").style.display = tab === "image" ? "" : "none";
+}
+
+function selectType(el, type) {
+    selectedType = type;
+    document.querySelectorAll(".type-btn").forEach(b => b.classList.remove("selected"));
+    el.classList.add("selected");
+}
+
+async function submitManual() {
+    const amount = parseInt(document.getElementById("inpAmount").value);
+    if (!amount || amount <= 0) { alert("금액을 입력해주세요"); return; }
+    const store = document.getElementById("inpStore").value.trim() || "직접입력";
+    const card = document.getElementById("inpCard").value.trim() || "기타";
+    const category = document.getElementById("inpCat").value;
+    const costType = document.getElementById("inpCostType").value;
+    const now = new Date();
+    const tx = {
+        store, amount, card, category, type: selectedType, cost_type: costType,
+        date: now.toISOString().slice(0,10),
+        time: String(now.getHours()).padStart(2,"0") + ":" + String(now.getMinutes()).padStart(2,"0"),
+        member: "은재", parsed: true, source: "manual"
+    };
+    try {
+        const res = await fetch(API_BASE + "/api/sms", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(tx)
+        });
+        if (res.ok) {
+            closeModal();
+            await fetchTransactions();
+        } else {
+            alert("등록 실패: 서버 응답 " + res.status);
+        }
+    } catch(e) {
+        alert("서버 연결 실패. 나중에 다시 시도해주세요.");
+    }
+}
+
+async function submitPaste() {
+    const text = document.getElementById("pasteArea").value.trim();
+    if (!text) { alert("문자 내용을 붙여넣기 해주세요"); return; }
+    try {
+        const res = await fetch(API_BASE + "/api/sms?message=" + encodeURIComponent(text));
+        if (res.ok) {
+            closeModal();
+            await fetchTransactions();
+        } else {
+            alert("파싱 실패: 서버 응답 " + res.status);
+        }
+    } catch(e) {
+        alert("서버 연결 실패. 나중에 다시 시도해주세요.");
+    }
+}
+
 // ===== 로드맵 =====
 function renderRoadmap() {
     const items = [
-        { ver: "v2.1", name: "기본 현황판", desc: "지출·입금 요약 카드, 카테고리 바, 거래 리스트, Render API 실시간 연동", active: true },
-        { ver: "v2.5", name: "시각화 강화 ← 현재", desc: "카테고리 파이차트, 일별 지출 바차트, 건당 평균·순수지 KPI, 샘플 데이터 자동 전환", active: true },
-        { ver: "v3.0", name: "부부 가계부", desc: "은재/와이프 멤버별 필터 및 비교, 고정지출 vs 변동지출 분류, 월 예산 설정 & 잔여 게이지", active: false },
-        { ver: "v4.0", name: "스마트 분석", desc: "카테고리별 월간 추이 히트맵, 이상 지출 감지(평균 대비 급증), 절약 리포트, 주간/월간 자동 생성", active: false },
-        { ver: "v5.0", name: "자산 통합", desc: "총 자산 현황(계좌 잔고, 카드 결제 예정), 프랍트레이딩 수익 연동, 투자 포트폴리오 요약, 연간 자산 증감 차트", active: false },
+        {
+            ver: "v2.1", name: "기본 현황판", active: true,
+            desc: "지출·입금 요약 카드, 카테고리 바, 거래 리스트, Render API 실시간 연동",
+            modules: [
+                { tag: "①Collector", role: "SMS 알림 수신 (Macrodroid → HTTP GET)" },
+                { tag: "②Parser", role: "카드사 문자 파싱 (멀티라인+한줄)" },
+                { tag: "③Storage", role: "JSON 파일 저장" },
+                { tag: "⑥Dashboard", role: "기본 KPI + 거래 리스트 표시" },
+                { tag: "⑦Alerter", role: "텔레그램 그룹 알림 발송" }
+            ]
+        },
+        {
+            ver: "v2.5", name: "시각화 강화 ← 현재", active: true,
+            desc: "카테고리 파이차트, 일별 바차트, 건당 평균·순수지 KPI, 샘플 데이터 자동 전환, 수동 입력 모달(직접입력·문자붙여넣기)",
+            modules: [
+                { tag: "⑥Dashboard", role: "종합형 차트 + 탭 UI + 수동 입력 지원" },
+                { tag: "④Analyzer", role: "일별/카테고리별 집계 로직" },
+                { tag: "⑤Normalizer", role: "비용구분 필드 추가 (변동비/고정비)" }
+            ]
+        },
+        {
+            ver: "v3.0", name: "부부 가계부", active: false,
+            desc: "은재/와이프 멤버별 필터 및 비교, 고정비 vs 변동비 분류 고도화, 월 예산 설정 & 잔여 게이지",
+            modules: [
+                { tag: "①Collector", role: "이미지 OCR 입력 + 파일 업로드 수신" },
+                { tag: "②Parser", role: "OCR 텍스트 파싱, 멤버 자동 식별" },
+                { tag: "③Storage", role: "멤버별·비용구분별 인덱스 저장" },
+                { tag: "④Analyzer", role: "고정비/변동비 분류 자동화, 예산 대비 분석" },
+                { tag: "⑤Normalizer", role: "카테고리 → 고정비/변동비 자동 매핑 규칙" },
+                { tag: "⑥Dashboard", role: "멤버 필터, 예산 게이지, 고정비/변동비 비교 차트" },
+                { tag: "⑦Alerter", role: "예산 초과 경고, 멤버별 리포트" }
+            ],
+            blueprint: "고정비(관리비·통신비·구독·보험) vs 변동비(식비·쇼핑·유흥·교통) 자동 분류 체계 확립"
+        },
+        {
+            ver: "v4.0", name: "스마트 분석", active: false,
+            desc: "카테고리별 월간 추이 히트맵, 이상 지출 감지(평균 대비 급증), 절약 리포트, 주간/월간 자동 생성",
+            modules: [
+                { tag: "④Analyzer", role: "이상감지 알고리즘, 추이 분석, 리포트 자동 생성" },
+                { tag: "⑤Normalizer", role: "월간 트렌드 정규화, 시계열 데이터 정제" },
+                { tag: "⑥Dashboard", role: "히트맵, 추이 차트, 리포트 뷰어" },
+                { tag: "⑦Alerter", role: "이상지출 즉시 알림, 주간/월간 리포트 발송" }
+            ]
+        },
+        {
+            ver: "v5.0", name: "자산 통합", active: false,
+            desc: "총 자산 현황(계좌 잔고, 카드 결제 예정), 프랍트레이딩 수익 연동, 투자 포트폴리오 요약, 연간 자산 증감 차트",
+            modules: [
+                { tag: "①Collector", role: "은행 API / 자산관리앱 연동 수신" },
+                { tag: "②Parser", role: "계좌·투자 데이터 파싱" },
+                { tag: "③Storage", role: "자산 스냅샷 시계열 저장" },
+                { tag: "④Analyzer", role: "자산 증감 분석, 포트폴리오 수익률" },
+                { tag: "⑤Normalizer", role: "다중 소스 자산 데이터 통합·정규화" },
+                { tag: "⑥Dashboard", role: "총 자산 현황판, 자산 추이 차트" },
+                { tag: "⑦Alerter", role: "자산 변동 알림, 프랍 수익 리포트" }
+            ]
+        }
     ];
     document.getElementById("roadmapSection").innerHTML =
         '<div class="section-title" style="padding:0 0 12px;">버전 로드맵 <span class="badge">v2.1 → v5.0</span></div>' +
@@ -754,6 +1082,15 @@ function renderRoadmap() {
                     '<div class="roadmap-ver ' + (it.active ? '' : 'future-ver') + '">' + it.ver + '</div>' +
                     '<div class="roadmap-name">' + it.name + '</div>' +
                     '<div class="roadmap-desc">' + it.desc + '</div>' +
+                    (it.blueprint ? '<div style="font-size:0.7rem;color:#845ef7;margin-top:6px;padding:6px 8px;background:#f3f0ff;border-radius:6px;">📋 ' + it.blueprint + '</div>' : '') +
+                    '<div class="roadmap-modules">' +
+                        it.modules.map(m =>
+                            '<span title="' + m.role + '">' + m.tag + '</span>'
+                        ).join("") +
+                    '</div>' +
+                    '<div style="font-size:0.65rem;color:#80868b;margin-top:4px;line-height:1.5;">' +
+                        it.modules.map(m => m.tag + ': ' + m.role).join('<br>') +
+                    '</div>' +
                 '</div>' +
             '</div>'
         ).join("");
