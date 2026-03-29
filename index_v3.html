@@ -6,7 +6,7 @@
     <title>가계부 CMS — 대시보드</title>
     <style>
         /* ============================================================
-           ⑥ Dashboard 모듈 v3.0 — 통합형 대시보드
+           ⑥ Dashboard 모듈 v2.51 — 패치: 분류·감지·제외
            독립 배포: GitHub Pages
            데이터 소스: Render API 서버
            ============================================================ */
@@ -644,8 +644,8 @@
 
 <div class="header">
     <h1>가계부 CMS</h1>
-    <div class="version">⑥ Dashboard v3.0 — 통합형 대시보드</div>
-    <div style="font-size:0.68rem;opacity:0.6;margin-top:6px;line-height:1.4;">고정비·변동비 분류 · 중복 감지 · 제외 거래 관리<br>v3.0 부부 가계부 기능 통합 준비 중</div>
+    <div class="version">⑥ Dashboard v2.51 — 분류·감지·제외 패치</div>
+    <div style="font-size:0.68rem;opacity:0.6;margin-top:6px;line-height:1.4;">월별 지출 · 입금 · 순수지 흐름 관리<br>고정비/변동비 분류 · 중복 감지 · 제외 거래 필터</div>
 </div>
 
 <div class="status-bar">
@@ -810,7 +810,7 @@
         <div id="inputImage" style="display:none">
             <div class="empty" style="padding:32px 0">
                 <div class="icon">📷</div>
-                <div class="msg">이미지 업로드는 v3.0에서 지원 예정</div>
+                <div class="msg">이미지 업로드는 v3.0(부부 가계부)에서 지원 예정</div>
                 <div style="font-size:0.72rem;color:#80868b;margin-top:8px">영수증/카드 문자 캡처 → OCR 자동 파싱</div>
             </div>
         </div>
@@ -1115,14 +1115,15 @@ function renderCostType(txs) {
         issues.push({
             type: "warning",
             title: "⚠️ 고정비 비율 높음",
-            desc: "고정비가 ' + fixedPct + '%를 넘었습니다. 생활비 최적화를 고려해보세요."
+            desc: "고정비가 " + fixedPct + "%를 넘었습니다. 생활비 최적화를 고려해보세요."
         });
     }
-    if (variable.filter(t => t.category === "구독").length > 0 && variable.filter(t => t.category === "구독").length >= 2) {
+    var subCount = exp.filter(t => t.category === "구독").length;
+    if (subCount >= 2) {
         issues.push({
             type: "info",
             title: "💡 구독 서비스 확인",
-            desc: "활성 구독 서비스가 ' + variable.filter(t => t.category === "구독").length + '개입니다. 불필요한 구독 확인을 권장합니다."
+            desc: "활성 구독 서비스가 " + subCount + "개입니다. 불필요한 구독 확인을 권장합니다."
         });
     }
     const totalCost = totalFixed + totalVariable;
@@ -1437,7 +1438,8 @@ async function submitPaste() {
 
 // ===== 로드맵 =====
 function renderRoadmap() {
-    const items = [
+    // 메이저 로드맵 (청사진)
+    const majors = [
         {
             ver: "v2.1", name: "기본 현황판", active: true,
             desc: "지출·입금 요약 카드, 카테고리 바, 거래 리스트, Render API 실시간 연동",
@@ -1447,27 +1449,44 @@ function renderRoadmap() {
                 { tag: "③Storage", role: "JSON 파일 저장" },
                 { tag: "⑥Dashboard", role: "기본 KPI + 거래 리스트 표시" },
                 { tag: "⑦Alerter", role: "텔레그램 그룹 알림 발송" }
-            ]
+            ],
+            patches: []
         },
         {
             ver: "v2.5", name: "시각화 강화", active: true,
-            desc: "카테고리 파이차트, 일별 바차트, 건당 평균·순수지 KPI, 샘플 데이터 자동 전환, 수동 입력 모달(직접입력·문자붙여넣기)",
+            desc: "카테고리 파이차트, 일별 바차트, 건당 평균·순수지 KPI, 샘플 데이터 자동 전환, 수동 입력 모달",
             modules: [
                 { tag: "⑥Dashboard", role: "종합형 차트 + 탭 UI + 수동 입력 지원" },
                 { tag: "④Analyzer", role: "일별/카테고리별 집계 로직" },
                 { tag: "⑤Normalizer", role: "비용구분 필드 추가 (변동비/고정비)" }
+            ],
+            patches: [
+                {
+                    ver: "v2.51", name: "분류·감지·제외 패치 ← 현재", date: "2026-03-29",
+                    desc: "고정비/변동비 자동 분류, 중복 거래 감지, 제외 거래 필터",
+                    modules: [
+                        { tag: "③Storage", role: "cost_type, is_excluded, is_duplicate 필드 추가" },
+                        { tag: "④Analyzer", role: "중복 감지 (날짜+금액), 제외 키워드 자동 감지" },
+                        { tag: "⑤Normalizer", role: "카테고리 → 고정비/변동비 매핑 규칙" },
+                        { tag: "⑥Dashboard", role: "비율 카드, 이슈 감지, 중복 배너, 제외 탭" }
+                    ]
+                }
             ]
         },
         {
-            ver: "v3.0", name: "통합형 대시보드 ← 현재", active: true,
-            desc: "고정비/변동비 자동 분류, 중복 거래 감지, 제외 거래 필터 (이체·송금·환불 자동 제외)",
+            ver: "v3.0", name: "부부 가계부", active: false,
+            desc: "은재/와이프 멤버별 필터 및 비교, 고정비 vs 변동비 분류 고도화, 월 예산 설정 & 잔여 게이지, 이미지 OCR 입력",
             modules: [
-                { tag: "③Storage", role: "is_excluded, exclude_type, cost_type, is_duplicate 필드 추가" },
-                { tag: "④Analyzer", role: "중복 감지 (날짜+금액), 제외 키워드 자동 감지" },
-                { tag: "⑤Normalizer", role: "카테고리 → 고정비/변동비 자동 매핑 (생활·구독·통신 → 고정비)" },
-                { tag: "⑥Dashboard", role: "고정비/변동비 비율 카드, 이슈 감지 (고정비>50%), 중복 배너, 제외 탭, cost_type 태그 표시" }
+                { tag: "①Collector", role: "이미지 OCR 입력 + 파일 업로드 수신" },
+                { tag: "②Parser", role: "OCR 텍스트 파싱, 멤버 자동 식별" },
+                { tag: "③Storage", role: "멤버별·비용구분별 인덱스 저장" },
+                { tag: "④Analyzer", role: "고정비/변동비 분류 고도화, 예산 대비 분석" },
+                { tag: "⑤Normalizer", role: "카테고리 → 고정비/변동비 자동 매핑 규칙 고도화" },
+                { tag: "⑥Dashboard", role: "멤버 필터, 예산 게이지, 고정비/변동비 비교 차트" },
+                { tag: "⑦Alerter", role: "예산 초과 경고, 멤버별 리포트" }
             ],
-            blueprint: "고정비(관리비·통신비·구독·보험) vs 변동비(식비·쇼핑·유흥·교통) 체계 완성"
+            blueprint: "고정비(관리비·통신비·구독·보험) vs 변동비(식비·쇼핑·유흥·교통) 자동 분류 체계 고도화 + 멤버 분리",
+            patches: []
         },
         {
             ver: "v4.0", name: "스마트 분석", active: false,
@@ -1477,7 +1496,8 @@ function renderRoadmap() {
                 { tag: "⑤Normalizer", role: "월간 트렌드 정규화, 시계열 데이터 정제" },
                 { tag: "⑥Dashboard", role: "히트맵, 추이 차트, 리포트 뷰어" },
                 { tag: "⑦Alerter", role: "이상지출 즉시 알림, 주간/월간 리포트 발송" }
-            ]
+            ],
+            patches: []
         },
         {
             ver: "v5.0", name: "자산 통합", active: false,
@@ -1490,33 +1510,74 @@ function renderRoadmap() {
                 { tag: "⑤Normalizer", role: "다중 소스 자산 데이터 통합·정규화" },
                 { tag: "⑥Dashboard", role: "총 자산 현황판, 자산 추이 차트" },
                 { tag: "⑦Alerter", role: "자산 변동 알림, 프랍 수익 리포트" }
-            ]
+            ],
+            patches: []
         }
     ];
-    document.getElementById("roadmapSection").innerHTML =
-        '<div class="section-title" style="padding:0 0 12px;">버전 로드맵 <span class="badge">v2.1 → v5.0</span></div>' +
-        items.map((it, i) =>
-            '<div class="roadmap-item">' +
-                '<div class="roadmap-dot-col">' +
-                    '<div class="roadmap-dot ' + (it.active ? 'active' : 'future') + '"></div>' +
-                    (i < items.length - 1 ? '<div class="roadmap-line"></div>' : '') +
+
+    // 렌더링
+    var html = '<div class="section-title" style="padding:0 0 12px;">버전 로드맵 <span class="badge">v2.1 → v5.0</span></div>';
+
+    majors.forEach(function(it, i) {
+        var isCurrent = it.patches && it.patches.some(function(p) { return p.name.includes("현재"); });
+        var dotClass = it.active ? "active" : (isCurrent ? "active" : "future");
+
+        html += '<div class="roadmap-item">' +
+            '<div class="roadmap-dot-col">' +
+                '<div class="roadmap-dot ' + dotClass + '"></div>' +
+                (i < majors.length - 1 || (it.patches && it.patches.length > 0) ? '<div class="roadmap-line"></div>' : '') +
+            '</div>' +
+            '<div class="roadmap-content">' +
+                '<div class="roadmap-ver ' + (it.active || isCurrent ? '' : 'future-ver') + '">' + it.ver + '</div>' +
+                '<div class="roadmap-name">' + it.name + '</div>' +
+                '<div class="roadmap-desc">' + it.desc + '</div>' +
+                (it.blueprint ? '<div style="font-size:0.7rem;color:#845ef7;margin-top:6px;padding:6px 8px;background:#f3f0ff;border-radius:6px;">📋 ' + it.blueprint + '</div>' : '') +
+                '<div class="roadmap-modules">' +
+                    it.modules.map(function(m) { return '<span title="' + m.role + '">' + m.tag + '</span>'; }).join("") +
                 '</div>' +
-                '<div class="roadmap-content">' +
-                    '<div class="roadmap-ver ' + (it.active ? '' : 'future-ver') + '">' + it.ver + '</div>' +
-                    '<div class="roadmap-name">' + it.name + '</div>' +
-                    '<div class="roadmap-desc">' + it.desc + '</div>' +
-                    (it.blueprint ? '<div style="font-size:0.7rem;color:#845ef7;margin-top:6px;padding:6px 8px;background:#f3f0ff;border-radius:6px;">📋 ' + it.blueprint + '</div>' : '') +
-                    '<div class="roadmap-modules">' +
-                        it.modules.map(m =>
-                            '<span title="' + m.role + '">' + m.tag + '</span>'
-                        ).join("") +
-                    '</div>' +
-                    '<div style="font-size:0.65rem;color:#80868b;margin-top:4px;line-height:1.5;">' +
-                        it.modules.map(m => m.tag + ': ' + m.role).join('<br>') +
-                    '</div>' +
+                '<div style="font-size:0.65rem;color:#80868b;margin-top:4px;line-height:1.5;">' +
+                    it.modules.map(function(m) { return m.tag + ': ' + m.role; }).join('<br>') +
                 '</div>' +
-            '</div>'
-        ).join("");
+            '</div>' +
+        '</div>';
+
+        // 패치 항목 (들여쓰기 + 점선)
+        if (it.patches) {
+            it.patches.forEach(function(p, pi) {
+                var isLast = pi === it.patches.length - 1;
+                html += '<div class="roadmap-item" style="margin-left:16px;">' +
+                    '<div class="roadmap-dot-col">' +
+                        '<div class="roadmap-dot" style="width:9px;height:9px;background:#845ef7;box-shadow:0 0 0 3px #ede9fe;"></div>' +
+                        (!isLast ? '<div class="roadmap-line" style="border-left:2px dashed #c4b5fd;background:none;width:0;margin-left:1px;"></div>' : '') +
+                    '</div>' +
+                    '<div class="roadmap-content" style="border-left:2px dashed #e9e5f5;padding-left:12px;margin-left:-1px;">' +
+                        '<div class="roadmap-ver" style="color:#845ef7;">' + p.ver + ' <span style="font-size:0.6rem;color:#80868b;font-weight:400;">' + (p.date || '') + '</span></div>' +
+                        '<div class="roadmap-name" style="font-size:0.8rem;">' + p.name + '</div>' +
+                        '<div class="roadmap-desc">' + p.desc + '</div>' +
+                        '<div class="roadmap-modules">' +
+                            p.modules.map(function(m) { return '<span title="' + m.role + '" style="background:#ede9fe;color:#845ef7;">' + m.tag + '</span>'; }).join("") +
+                        '</div>' +
+                        '<div style="font-size:0.65rem;color:#80868b;margin-top:4px;line-height:1.5;">' +
+                            p.modules.map(function(m) { return m.tag + ': ' + m.role; }).join('<br>') +
+                        '</div>' +
+                    '</div>' +
+                '</div>';
+            });
+        }
+    });
+
+    // 변경 로그
+    html += '<div style="margin-top:20px;padding:12px;background:#fff;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,0.06);">' +
+        '<div style="font-size:0.78rem;font-weight:600;margin-bottom:8px;">📝 변경 로그</div>' +
+        '<div style="font-size:0.68rem;color:#5f6368;line-height:1.8;">' +
+            '<div><strong style="color:#845ef7;">v2.51</strong> (2026-03-29) — 고정비/변동비 자동 분류, 중복 감지, 제외 거래 필터 <span style="color:#80868b;">[③④⑤⑥]</span></div>' +
+            '<div><strong style="color:#1a73e8;">v2.5</strong> (2026-03-28) — 종합형 대시보드, 차트, 수동 입력 모달 <span style="color:#80868b;">[④⑤⑥]</span></div>' +
+            '<div><strong style="color:#1a73e8;">v2.1</strong> (2026-03-27) — 기본 현황판, SMS 자동화, 텔레그램 연동 <span style="color:#80868b;">[①②③⑥⑦]</span></div>' +
+        '</div>' +
+        '<div style="font-size:0.6rem;color:#adb5bd;margin-top:8px;">패치(.x)는 청사진 외 보완 · 메이저(.0)는 로드맵 계획 기능</div>' +
+    '</div>';
+
+    document.getElementById("roadmapSection").innerHTML = html;
 }
 
 // ===== 유틸 =====

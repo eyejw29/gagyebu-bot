@@ -72,6 +72,9 @@ TX_TYPE_KEYWORDS = [
 MULTILINE_DETECT = ["금액", "사용처", "거래시간", "거래종류", "거래구분",
                      "이용시간", "가맹점", "이용처", "거래일시"]
 
+# 삼성카드 전용 형식 (예: "삼성5851승인 오*재 / 1,000원 일시불 / 03/29 09:17 애플컴퍼니")
+SAMSUNG_PATTERN = r"(삼성|삼성카드)\d{2,4}승인\s+\S+\s*\n?\s*([\d,]+)원\s*일시불\s*\n?\s*(\d{2}/\d{2})\s+(\d{2}:\d{2})\s+(.+?)(?:\s*\n?\s*누적|$)"
+
 ONELINE_PATTERNS = [
     r"(?:\[?)(\w+카드|KB|신한|삼성|현대|롯데|하나|우리|NH|BC|카카오뱅크|토스)(?:\]?)\s*(?:승인|결제|출금)\s*([\d,]+)원?\s+(.+?)(?:\s+\d{2}[:/]\d{2}|\s*$)",
     r"(\w+카드|KB|신한|삼성|현대|롯데|하나|우리|NH|BC|카카오뱅크|토스)\s*([\d,]+)원\s*(?:승인|결제|출금)\s+(.+?)(?:\s+\d{2}[:/]\d{2}|\s*$)",
@@ -168,7 +171,30 @@ def _parse_oneline(text):
     return r
 
 
+def _parse_samsung(text):
+    """삼성카드 전용 파서 (예: 삼성5851승인 오*재 / 1,000원 일시불 / 03/29 09:17 애플컴퍼니 / 누적...)"""
+    m = re.search(SAMSUNG_PATTERN, text, re.DOTALL)
+    if not m:
+        return None
+    r = _make_result(text)
+    r["card"] = "삼성"
+    r["amount"] = int(m.group(2).replace(",", ""))
+    date_str = m.group(3)  # "03/29"
+    month, day = date_str.split("/")
+    r["date"] = f"{datetime.now().year}-{month}-{day}"
+    r["time"] = m.group(4)  # "09:17"
+    r["store"] = m.group(5).strip()
+    r["parsed"] = True
+    r["category"] = _classify_category(text, r["store"])
+    return r
+
+
 def parse_sms(text):
+    # 삼성카드 전용 형식 먼저 체크
+    samsung = _parse_samsung(text)
+    if samsung:
+        return samsung
+    # 기존 멀티라인 파서
     hit = sum(1 for kw in MULTILINE_DETECT if kw in text)
     if hit >= 2:
         result = _parse_multiline(text)
