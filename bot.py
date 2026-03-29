@@ -491,6 +491,12 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(404)
         self.end_headers()
 
+    def do_HEAD(self):
+        """UptimeRobot 등 모니터링 서비스의 HEAD 요청 처리"""
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.end_headers()
+
     def do_OPTIONS(self):
         self.send_response(200)
         self.send_header("Access-Control-Allow-Origin", "*")
