@@ -6,7 +6,7 @@
     <title>가계부 CMS — 대시보드</title>
     <style>
         /* ============================================================
-           ⑥ Dashboard 모듈 v2.5 — 종합형 대시보드
+           ⑥ Dashboard 모듈 v2.51 — 패치: 분류·감지·제외
            독립 배포: GitHub Pages
            데이터 소스: Render API 서버
            ============================================================ */
@@ -65,9 +65,11 @@
             position: sticky;
             top: 0;
             z-index: 10;
+            overflow-x: auto;
         }
         .tab {
             flex: 1;
+            min-width: 55px;
             padding: 10px 0;
             text-align: center;
             font-size: 0.78rem;
@@ -76,6 +78,7 @@
             color: #80868b;
             border-bottom: 2px solid transparent;
             transition: all 0.2s;
+            white-space: nowrap;
         }
         .tab.active { color: #1a73e8; border-bottom-color: #1a73e8; }
 
@@ -200,6 +203,101 @@
             margin-top: 4px;
         }
 
+        /* ===== 고정비/변동비 섹션 ===== */
+        .cost-type-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            padding: 12px 16px;
+            margin-bottom: 8px;
+        }
+        .cost-type-card {
+            background: white;
+            border-radius: 12px;
+            padding: 14px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+        }
+        .cost-type-label { font-size: 0.7rem; color: #80868b; margin-bottom: 4px; }
+        .cost-type-value { font-size: 1.35rem; font-weight: 700; margin-bottom: 2px; }
+        .cost-type-pct { font-size: 0.68rem; color: #80868b; }
+        .cost-type-ratio {
+            background: white;
+            border-radius: 12px;
+            padding: 16px;
+            margin: 0 16px 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+        }
+        .ratio-bar {
+            display: flex;
+            height: 24px;
+            border-radius: 12px;
+            overflow: hidden;
+            margin-bottom: 8px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+        }
+        .ratio-fixed {
+            background: linear-gradient(90deg, #a78bfa, #c084fc);
+            flex-shrink: 0;
+        }
+        .ratio-variable {
+            background: linear-gradient(90deg, #fbbf24, #fcd34d);
+            flex-shrink: 0;
+        }
+        .ratio-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.7rem;
+            font-weight: 500;
+            color: #5f6368;
+        }
+
+        /* 이슈 카드 */
+        .issue-card {
+            background: white;
+            border-radius: 12px;
+            padding: 12px 14px;
+            margin: 0 16px 8px;
+            border-left: 4px solid;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+        }
+        .issue-card.warning {
+            background: #fef3c7;
+            border-left-color: #f59e0b;
+        }
+        .issue-card.danger {
+            background: #fef2f2;
+            border-left-color: #ef4444;
+        }
+        .issue-card.info {
+            background: #eff6ff;
+            border-left-color: #3b82f6;
+        }
+        .issue-title {
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: #1a1a2e;
+            margin-bottom: 4px;
+        }
+        .issue-desc {
+            font-size: 0.72rem;
+            color: #5f6368;
+            line-height: 1.4;
+        }
+
+        /* 중복 감지 배너 */
+        .duplicate-banner {
+            background: #fef2f2;
+            border-left: 4px solid #ef4444;
+            padding: 10px 14px;
+            margin: 8px 16px;
+            border-radius: 8px;
+            font-size: 0.78rem;
+            font-weight: 500;
+            color: #ef4444;
+            display: none;
+        }
+        .duplicate-banner.show { display: block; }
+
         /* ===== 카테고리 리스트 ===== */
         .cat-item {
             background: white;
@@ -238,6 +336,14 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            transition: opacity 0.2s;
+        }
+        .tx-item.excluded {
+            opacity: 0.5;
+            background: #f5f5f5;
+        }
+        .tx-item.duplicate {
+            opacity: 0.6;
         }
         .tx-icon {
             width: 36px; height: 36px;
@@ -258,11 +364,12 @@
         .tx-icon.sub { background: #ede7f6; }
         .tx-icon.etc { background: #f5f5f5; }
         .tx-left { display: flex; align-items: center; flex: 1; min-width: 0; }
-        .tx-info { min-width: 0; }
+        .tx-info { min-width: 0; flex: 1; }
         .tx-store { font-size: 0.85rem; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .tx-meta { font-size: 0.68rem; color: #80868b; margin-top: 2px; }
         .tx-right { text-align: right; flex-shrink: 0; margin-left: 8px; }
         .tx-amount { font-size: 0.88rem; font-weight: 600; }
+        .tx-amount.strikethrough { text-decoration: line-through; }
         .tx-type-badge {
             display: inline-block;
             font-size: 0.6rem;
@@ -274,6 +381,59 @@
         .tx-type-badge.expense { background: #fce8e6; color: #ea4335; }
         .tx-type-badge.income { background: #e6f4ea; color: #34a853; }
         .tx-type-badge.transfer { background: #e8f0fe; color: #1a73e8; }
+        .tx-duplicate-badge {
+            display: inline-block;
+            font-size: 0.6rem;
+            padding: 1px 6px;
+            border-radius: 4px;
+            background: #fef2f2;
+            color: #ef4444;
+            font-weight: 500;
+            margin-left: 3px;
+        }
+        .tx-cost-type-badge {
+            display: inline-block;
+            font-size: 0.6rem;
+            padding: 1px 6px;
+            border-radius: 4px;
+            margin-top: 2px;
+            margin-left: 3px;
+            font-weight: 500;
+        }
+        .tx-cost-type-badge.fixed { background: #ede7f6; color: #845ef7; }
+        .tx-cost-type-badge.variable { background: #fef3c7; color: #92400e; }
+        .tx-source-badge {
+            display: inline-block;
+            font-size: 0.55rem;
+            padding: 1px 4px;
+            border-radius: 3px;
+            background: #e8eaed;
+            color: #5f6368;
+            font-weight: 500;
+            margin-left: 2px;
+        }
+        .tx-actions {
+            display: flex;
+            gap: 6px;
+            margin-top: 8px;
+        }
+        .tx-action-btn {
+            flex: 1;
+            font-size: 0.7rem;
+            padding: 6px 10px;
+            border: 1px solid #dadce0;
+            border-radius: 6px;
+            background: white;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        .tx-action-btn:hover { background: #f8f9fa; }
+        .tx-action-btn.danger {
+            border-color: #ef4444;
+            color: #ef4444;
+        }
+        .tx-action-btn.danger:hover { background: #fef2f2; }
 
         /* 빈 상태 */
         .empty {
@@ -484,8 +644,8 @@
 
 <div class="header">
     <h1>가계부 CMS</h1>
-    <div class="version">⑥ Dashboard v2.5 — 종합형 대시보드</div>
-    <div style="font-size:0.68rem;opacity:0.6;margin-top:6px;line-height:1.4;">월별 지출 · 입금 · 순수지 흐름 관리<br>총 자산 연결은 v5.0에서 진행 예정</div>
+    <div class="version">⑥ Dashboard v2.51 — 분류·감지·제외 패치</div>
+    <div style="font-size:0.68rem;opacity:0.6;margin-top:6px;line-height:1.4;">월별 지출 · 입금 · 순수지 흐름 관리<br>고정비/변동비 분류 · 중복 감지 · 제외 거래 필터</div>
 </div>
 
 <div class="status-bar">
@@ -501,6 +661,7 @@
         <div class="tab" data-view="week" onclick="switchTab(this)">이번 주</div>
         <div class="tab" data-view="month" onclick="switchTab(this)">이번 달</div>
         <div class="tab" data-view="all" onclick="switchTab(this)">전체</div>
+        <div class="tab" data-view="excluded" onclick="switchTab(this)">제외</div>
         <div class="tab" data-view="roadmap" onclick="switchTab(this)">로드맵</div>
     </div>
 
@@ -521,6 +682,46 @@
             <div class="pie-legend" id="pieLegend"></div>
         </div>
     </div>
+
+    <!-- 고정비/변동비 섹션 -->
+    <div id="costTypeSection" style="display:none">
+        <div class="cost-type-section">
+            <div class="cost-type-card">
+                <div class="cost-type-label">고정비</div>
+                <div class="cost-type-value" style="color:#845ef7" id="fixedCostValue">0원</div>
+                <div class="cost-type-pct" id="fixedCostPct">0%</div>
+            </div>
+            <div class="cost-type-card">
+                <div class="cost-type-label">변동비</div>
+                <div class="cost-type-value" style="color:#f59e0b" id="variableCostValue">0원</div>
+                <div class="cost-type-pct" id="variableCostPct">0%</div>
+            </div>
+        </div>
+
+        <div class="cost-type-ratio">
+            <div class="ratio-bar">
+                <div class="ratio-fixed" id="ratioFixed"></div>
+                <div class="ratio-variable" id="ratioVariable"></div>
+            </div>
+            <div class="ratio-labels">
+                <span>고정비</span>
+                <span>변동비</span>
+            </div>
+        </div>
+
+        <div id="issueCards"></div>
+    </div>
+
+    <!-- 제외 거래 섹션 -->
+    <div id="excludedSection" style="display:none">
+        <div class="section">
+            <div class="section-title">제외된 거래 <span class="badge" id="excludedCount">0건</span></div>
+            <div id="excludedList"></div>
+        </div>
+    </div>
+
+    <!-- 중복 감지 배너 -->
+    <div class="duplicate-banner" id="duplicateBanner"></div>
 
     <!-- 카테고리 리스트 -->
     <div class="section" id="catSection" style="display:none">
@@ -609,7 +810,7 @@
         <div id="inputImage" style="display:none">
             <div class="empty" style="padding:32px 0">
                 <div class="icon">📷</div>
-                <div class="msg">이미지 업로드는 v3.0에서 지원 예정</div>
+                <div class="msg">이미지 업로드는 v3.0(부부 가계부)에서 지원 예정</div>
                 <div style="font-size:0.72rem;color:#80868b;margin-top:8px">영수증/카드 문자 캡처 → OCR 자동 파싱</div>
             </div>
         </div>
@@ -618,7 +819,8 @@
 
 <script>
 /* ============================================================
-   ⑥ Dashboard v2.5 — 종합형 대시보드 로직
+   ⑥ Dashboard v3.0 — 통합형 대시보드 로직
+   새로운 기능: 고정비/변동비, 중복 감지, 제외 거래
    ============================================================ */
 const API_BASE = "https://gagyebu-bot.onrender.com";
 let allTransactions = [];
@@ -644,36 +846,56 @@ const CAT_ICON_CLASS = {
     "기타": "etc"
 };
 
+// 비용구분 자동 분류 규칙
+const COST_TYPE_MAP = {
+    "생활": "고정비",
+    "구독": "고정비",
+    "통신": "고정비",
+    "식비": "변동비",
+    "카페": "변동비",
+    "교통": "변동비",
+    "쇼핑": "변동비",
+    "의료": "변동비",
+    "유흥": "변동비",
+    "기타": "변동비"
+};
+
+// 제외 키워드 감지
+const EXCLUDE_KEYWORDS = ["이체", "송금", "취소", "환불", "반품", "주식", "펀드", "대출상환"];
+
 // ===== 샘플 데이터 =====
 function generateSampleData() {
     const now = new Date();
     const y = now.getFullYear();
     const m = now.getMonth();
     const samples = [
-        { store: "스타벅스 강남점", amount: 6500, card: "신한", category: "카페", type: "지출", daysAgo: 0, hour: 9 },
-        { store: "배달의민족", amount: 32000, card: "현대", category: "식비", type: "지출", daysAgo: 0, hour: 12 },
-        { store: "GS칼텍스 주유소", amount: 72000, card: "현대", category: "교통", type: "지출", daysAgo: 0, hour: 15 },
-        { store: "급여", amount: 3500000, card: "기타", category: "기타", type: "입금", daysAgo: 1, hour: 9 },
-        { store: "이디야커피", amount: 4500, card: "신한", category: "카페", type: "지출", daysAgo: 1, hour: 10 },
-        { store: "쿠팡", amount: 45900, card: "삼성", category: "쇼핑", type: "지출", daysAgo: 1, hour: 14 },
-        { store: "CU 편의점", amount: 8200, card: "신한", category: "식비", type: "지출", daysAgo: 1, hour: 19 },
-        { store: "맥도날드", amount: 12500, card: "현대", category: "식비", type: "지출", daysAgo: 2, hour: 12 },
-        { store: "카카오택시", amount: 15800, card: "하나", category: "교통", type: "지출", daysAgo: 2, hour: 18 },
-        { store: "올리브영", amount: 28700, card: "삼성", category: "쇼핑", type: "지출", daysAgo: 2, hour: 16 },
-        { store: "넷플릭스", amount: 17000, card: "신한", category: "구독", type: "지출", daysAgo: 3, hour: 0 },
-        { store: "파리바게뜨", amount: 9800, card: "현대", category: "식비", type: "지출", daysAgo: 3, hour: 8 },
-        { store: "이마트", amount: 67500, card: "삼성", category: "쇼핑", type: "지출", daysAgo: 4, hour: 11 },
-        { store: "투썸플레이스", amount: 7200, card: "신한", category: "카페", type: "지출", daysAgo: 4, hour: 15 },
-        { store: "관리비", amount: 185000, card: "기타", category: "생활", type: "지출", daysAgo: 5, hour: 0 },
-        { store: "치킨매니아", amount: 22000, card: "하나", category: "식비", type: "지출", daysAgo: 5, hour: 20 },
-        { store: "내과의원", amount: 15000, card: "신한", category: "의료", type: "지출", daysAgo: 6, hour: 10 },
-        { store: "메가커피", amount: 3000, card: "현대", category: "카페", type: "지출", daysAgo: 6, hour: 14 },
-        { store: "SK주유소", amount: 68000, card: "현대", category: "교통", type: "지출", daysAgo: 7, hour: 9 },
-        { store: "이체 → 와이프", amount: 500000, card: "기타", category: "기타", type: "이체", daysAgo: 7, hour: 12 },
-        { store: "김밥천국", amount: 7500, card: "신한", category: "식비", type: "지출", daysAgo: 8, hour: 12 },
-        { store: "다이소", amount: 12000, card: "삼성", category: "쇼핑", type: "지출", daysAgo: 9, hour: 16 },
-        { store: "bbq치킨", amount: 25000, card: "하나", category: "식비", type: "지출", daysAgo: 10, hour: 19 },
-        { store: "KT 통신비", amount: 55000, card: "기타", category: "통신", type: "지출", daysAgo: 10, hour: 0 },
+        { store: "스타벅스 강남점", amount: 6500, card: "신한", category: "카페", type: "지출", daysAgo: 0, hour: 9, cost_type: "변동비", source: "sms", is_excluded: false, exclude_type: "none" },
+        { store: "배달의민족", amount: 32000, card: "현대", category: "식비", type: "지출", daysAgo: 0, hour: 12, cost_type: "변동비", source: "sms", is_excluded: false, exclude_type: "none" },
+        { store: "GS칼텍스 주유소", amount: 72000, card: "현대", category: "교통", type: "지출", daysAgo: 0, hour: 15, cost_type: "변동비", source: "sms", is_excluded: false, exclude_type: "none" },
+        { store: "급여", amount: 3500000, card: "기타", category: "기타", type: "입금", daysAgo: 1, hour: 9, cost_type: "변동비", source: "sms", is_excluded: false, exclude_type: "none" },
+        { store: "이디야커피", amount: 4500, card: "신한", category: "카페", type: "지출", daysAgo: 1, hour: 10, cost_type: "변동비", source: "sms", is_excluded: false, exclude_type: "none" },
+        { store: "쿠팡", amount: 45900, card: "삼성", category: "쇼핑", type: "지출", daysAgo: 1, hour: 14, cost_type: "변동비", source: "sms", is_excluded: false, exclude_type: "none" },
+        { store: "CU 편의점", amount: 8200, card: "신한", category: "식비", type: "지출", daysAgo: 1, hour: 19, cost_type: "변동비", source: "sms", is_excluded: false, exclude_type: "none" },
+        { store: "맥도날드", amount: 12500, card: "현대", category: "식비", type: "지출", daysAgo: 2, hour: 12, cost_type: "변동비", source: "sms", is_excluded: false, exclude_type: "none" },
+        { store: "카카오택시", amount: 15800, card: "하나", category: "교통", type: "지출", daysAgo: 2, hour: 18, cost_type: "변동비", source: "sms", is_excluded: false, exclude_type: "none" },
+        { store: "올리브영", amount: 28700, card: "삼성", category: "쇼핑", type: "지출", daysAgo: 2, hour: 16, cost_type: "변동비", source: "sms", is_excluded: false, exclude_type: "none" },
+        { store: "넷플릭스", amount: 17000, card: "신한", category: "구독", type: "지출", daysAgo: 3, hour: 0, cost_type: "고정비", source: "sms", is_excluded: false, exclude_type: "none" },
+        { store: "파리바게뜨", amount: 9800, card: "현대", category: "식비", type: "지출", daysAgo: 3, hour: 8, cost_type: "변동비", source: "sms", is_excluded: false, exclude_type: "none" },
+        { store: "이마트", amount: 67500, card: "삼성", category: "쇼핑", type: "지출", daysAgo: 4, hour: 11, cost_type: "변동비", source: "sms", is_excluded: false, exclude_type: "none" },
+        { store: "투썸플레이스", amount: 7200, card: "신한", category: "카페", type: "지출", daysAgo: 4, hour: 15, cost_type: "변동비", source: "sms", is_excluded: false, exclude_type: "none" },
+        { store: "관리비", amount: 185000, card: "기타", category: "생활", type: "지출", daysAgo: 5, hour: 0, cost_type: "고정비", source: "sms", is_excluded: false, exclude_type: "none" },
+        { store: "치킨매니아", amount: 22000, card: "하나", category: "식비", type: "지출", daysAgo: 5, hour: 20, cost_type: "변동비", source: "sms", is_excluded: false, exclude_type: "none" },
+        { store: "내과의원", amount: 15000, card: "신한", category: "의료", type: "지출", daysAgo: 6, hour: 10, cost_type: "변동비", source: "sms", is_excluded: false, exclude_type: "none" },
+        { store: "메가커피", amount: 3000, card: "현대", category: "카페", type: "지출", daysAgo: 6, hour: 14, cost_type: "변동비", source: "sms", is_excluded: false, exclude_type: "none" },
+        { store: "SK주유소", amount: 68000, card: "현대", category: "교통", type: "지출", daysAgo: 7, hour: 9, cost_type: "변동비", source: "sms", is_excluded: false, exclude_type: "none" },
+        { store: "이체 → 와이프", amount: 500000, card: "기타", category: "기타", type: "이체", daysAgo: 7, hour: 12, cost_type: "변동비", source: "sms", is_excluded: true, exclude_type: "transfer" },
+        { store: "김밥천국", amount: 7500, card: "신한", category: "식비", type: "지출", daysAgo: 8, hour: 12, cost_type: "변동비", source: "sms", is_excluded: false, exclude_type: "none" },
+        { store: "다이소", amount: 12000, card: "삼성", category: "쇼핑", type: "지출", daysAgo: 9, hour: 16, cost_type: "변동비", source: "sms", is_excluded: false, exclude_type: "none" },
+        { store: "bbq치킨", amount: 25000, card: "하나", category: "식비", type: "지출", daysAgo: 10, hour: 19, cost_type: "변동비", source: "sms", is_excluded: false, exclude_type: "none" },
+        { store: "KT 통신비", amount: 55000, card: "기타", category: "통신", type: "지출", daysAgo: 10, hour: 0, cost_type: "고정비", source: "sms", is_excluded: false, exclude_type: "none" },
+        // 중복 거래
+        { store: "스타벅스 강남", amount: 6500, card: "신한", category: "카페", type: "지출", daysAgo: 0, hour: 9, cost_type: "변동비", source: "sms", is_excluded: false, exclude_type: "none", is_duplicate: true },
+        { store: "배달의민족", amount: 32000, card: "현대", category: "식비", type: "지출", daysAgo: 0, hour: 12, cost_type: "변동비", source: "sms", is_excluded: false, exclude_type: "none", is_duplicate: true }
     ];
     return samples.map((s, i) => {
         const d = new Date(now);
@@ -690,8 +912,46 @@ function generateSampleData() {
             time: String(s.hour).padStart(2, "0") + ":00",
             member: "은재",
             parsed: true,
-            created_at: d.toISOString()
+            created_at: d.toISOString(),
+            cost_type: s.cost_type || COST_TYPE_MAP[s.category] || "변동비",
+            source: s.source || "sms",
+            is_excluded: s.is_excluded || false,
+            exclude_type: s.exclude_type || "none",
+            is_duplicate: s.is_duplicate || false
         };
+    });
+}
+
+// 제외 거래 감지 (is_excluded 필드 이용)
+function detectExclusions() {
+    allTransactions.forEach(t => {
+        if (!t.is_excluded && !t.exclude_type) {
+            for (let kw of EXCLUDE_KEYWORDS) {
+                if (t.store && t.store.includes(kw)) {
+                    t.is_excluded = true;
+                    t.exclude_type = kw;
+                    break;
+                }
+            }
+        }
+    });
+}
+
+// 중복 거래 감지
+function detectDuplicates() {
+    const txMap = {};
+    allTransactions.forEach(t => {
+        if (t.type === "지출") {
+            const key = `${t.date}|${t.amount}`;
+            if (!txMap[key]) txMap[key] = [];
+            txMap[key].push(t);
+        }
+    });
+
+    Object.entries(txMap).forEach(([key, txs]) => {
+        if (txs.length > 1) {
+            txs.forEach(t => t.is_duplicate = true);
+        }
     });
 }
 
@@ -702,7 +962,14 @@ async function fetchTransactions() {
         if (!res.ok) throw new Error("API error");
         const data = await res.json();
         if (data.length > 0) {
-            allTransactions = data;
+            allTransactions = data.map(t => ({
+                ...t,
+                cost_type: t.cost_type || COST_TYPE_MAP[t.category] || "변동비",
+                source: t.source || "sms",
+                is_excluded: t.is_excluded || false,
+                exclude_type: t.exclude_type || "none",
+                is_duplicate: t.is_duplicate || false
+            }));
             usingSample = false;
             setStatus("online", "연결됨", data.length + "건");
             document.getElementById("sampleBanner").classList.remove("show");
@@ -712,12 +979,16 @@ async function fetchTransactions() {
             setStatus("online", "연결됨", "샘플 표시 중");
             document.getElementById("sampleBanner").classList.add("show");
         }
+        detectExclusions();
+        detectDuplicates();
         render();
     } catch (e) {
         if (allTransactions.length === 0) {
             allTransactions = generateSampleData();
             usingSample = true;
             document.getElementById("sampleBanner").classList.add("show");
+            detectExclusions();
+            detectDuplicates();
         }
         setStatus("offline", "서버 연결 실패", "");
         render();
@@ -731,7 +1002,7 @@ function setStatus(state, text, count) {
 }
 
 // ===== 필터 =====
-function getFiltered() {
+function getFiltered(includeExcluded = false) {
     const now = new Date();
     const todayStr = now.toISOString().slice(0, 10);
     const y = now.getFullYear();
@@ -742,29 +1013,43 @@ function getFiltered() {
     const mon = new Date(now); mon.setDate(now.getDate() - monOff);
     const monStr = mon.toISOString().slice(0, 10);
 
-    if (currentView === "today") return allTransactions.filter(t => t.date === todayStr);
-    if (currentView === "week") return allTransactions.filter(t => t.date >= monStr && t.date <= todayStr);
-    if (currentView === "month") return allTransactions.filter(t => t.date && t.date.startsWith(monthPfx));
-    return allTransactions;
+    let filtered = allTransactions;
+    if (!includeExcluded) {
+        filtered = filtered.filter(t => !t.is_excluded);
+    }
+
+    if (currentView === "today") return filtered.filter(t => t.date === todayStr);
+    if (currentView === "week") return filtered.filter(t => t.date >= monStr && t.date <= todayStr);
+    if (currentView === "month") return filtered.filter(t => t.date && t.date.startsWith(monthPfx));
+    if (currentView === "excluded") return allTransactions.filter(t => t.is_excluded);
+    return filtered;
 }
 
 // ===== 메인 렌더 =====
 function render() {
     const isRoadmap = currentView === "roadmap";
-    document.getElementById("kpiCards").style.display = isRoadmap ? "none" : "";
+    const isExcluded = currentView === "excluded";
+
+    document.getElementById("kpiCards").style.display = isRoadmap || isExcluded ? "none" : "";
     document.getElementById("barChartCard").style.display = "none";
     document.getElementById("pieChartCard").style.display = "none";
+    document.getElementById("costTypeSection").style.display = isRoadmap || isExcluded ? "none" : "";
     document.getElementById("catSection").style.display = "none";
     document.getElementById("txSection").style.display = isRoadmap ? "none" : "";
+    document.getElementById("excludedSection").style.display = isExcluded ? "" : "none";
     document.getElementById("roadmapSection").style.display = isRoadmap ? "" : "none";
+    document.getElementById("duplicateBanner").style.display = "none";
 
     if (isRoadmap) { renderRoadmap(); return; }
+    if (isExcluded) { renderExcluded(); return; }
 
-    const filtered = getFiltered();
+    const filtered = getFiltered(false);
     renderKPI(filtered);
     renderBarChart(filtered);
     renderPieChart(filtered);
+    renderCostType(filtered);
     renderCategories(filtered);
+    renderDuplicates(filtered);
     renderTransactions(filtered);
 }
 
@@ -802,6 +1087,61 @@ function renderKPI(txs) {
             '</div>' +
             '<div class="kpi-sub">' + txs.length + '건 합산</div>' +
         '</div>';
+}
+
+// ===== 고정비/변동비 =====
+function renderCostType(txs) {
+    const exp = txs.filter(t => t.type === "지출");
+    const fixed = exp.filter(t => t.cost_type === "고정비");
+    const variable = exp.filter(t => t.cost_type === "변동비");
+    const totalFixed = fixed.reduce((s, t) => s + t.amount, 0);
+    const totalVariable = variable.reduce((s, t) => s + t.amount, 0);
+    const totalExp = totalFixed + totalVariable;
+
+    const fixedPct = totalExp > 0 ? Math.round(totalFixed / totalExp * 100) : 0;
+    const variablePct = totalExp > 0 ? Math.round(totalVariable / totalExp * 100) : 0;
+
+    document.getElementById("fixedCostValue").textContent = fmtAmt(totalFixed);
+    document.getElementById("fixedCostPct").textContent = fixedPct + "%";
+    document.getElementById("variableCostValue").textContent = fmtAmt(totalVariable);
+    document.getElementById("variableCostPct").textContent = variablePct + "%";
+
+    document.getElementById("ratioFixed").style.width = fixedPct + "%";
+    document.getElementById("ratioVariable").style.width = variablePct + "%";
+
+    // 이슈 감지
+    let issues = [];
+    if (fixedPct > 50) {
+        issues.push({
+            type: "warning",
+            title: "⚠️ 고정비 비율 높음",
+            desc: "고정비가 " + fixedPct + "%를 넘었습니다. 생활비 최적화를 고려해보세요."
+        });
+    }
+    var subCount = exp.filter(t => t.category === "구독").length;
+    if (subCount >= 2) {
+        issues.push({
+            type: "info",
+            title: "💡 구독 서비스 확인",
+            desc: "활성 구독 서비스가 " + subCount + "개입니다. 불필요한 구독 확인을 권장합니다."
+        });
+    }
+    const totalCost = totalFixed + totalVariable;
+    if (totalCost > 5000000) {
+        issues.push({
+            type: "danger",
+            title: "🚨 월간 지출 초과",
+            desc: "월간 지출이 500만원을 초과했습니다. 지출 패턴을 점검해주세요."
+        });
+    }
+
+    const issueHtml = issues.length > 0 ? issues.map(issue =>
+        '<div class="issue-card ' + issue.type + '">' +
+            '<div class="issue-title">' + issue.title + '</div>' +
+            '<div class="issue-desc">' + issue.desc + '</div>' +
+        '</div>'
+    ).join("") : '';
+    document.getElementById("issueCards").innerHTML = issueHtml;
 }
 
 // ===== 바차트: 일별 지출 =====
@@ -896,6 +1236,18 @@ function renderCategories(txs) {
     }).join("");
 }
 
+// ===== 중복 감지 배너 =====
+function renderDuplicates(txs) {
+    const duplicates = txs.filter(t => t.is_duplicate);
+    const banner = document.getElementById("duplicateBanner");
+    if (duplicates.length > 0) {
+        banner.textContent = "🔄 " + duplicates.length + "건 중복 의심 — 확인 필요";
+        banner.classList.add("show");
+    } else {
+        banner.classList.remove("show");
+    }
+}
+
 // ===== 거래 리스트 =====
 function renderTransactions(txs) {
     const count = document.getElementById("txCount");
@@ -915,7 +1267,11 @@ function renderTransactions(txs) {
         const sign = t.type === "입금" ? "+" : t.type === "이체" ? "" : "-";
         const iconCls = CAT_ICON_CLASS[t.category] || "etc";
         const icon = CAT_ICONS[t.category] || "📦";
-        return '<div class="tx-item">' +
+        const duplicateBadge = t.is_duplicate ? '<span class="tx-duplicate-badge">중복 의심</span>' : '';
+        const costTypeBadge = t.type === "지출" ? '<span class="tx-cost-type-badge ' + (t.cost_type === "고정비" ? "fixed" : "variable") + '">' + t.cost_type + '</span>' : '';
+        const sourceBadge = '<span class="tx-source-badge">' + t.source + '</span>';
+
+        return '<div class="tx-item ' + (t.is_duplicate ? 'duplicate' : '') + '">' +
             '<div class="tx-left">' +
                 '<div class="tx-icon ' + iconCls + '">' + icon + '</div>' +
                 '<div class="tx-info">' +
@@ -924,11 +1280,82 @@ function renderTransactions(txs) {
                 '</div>' +
             '</div>' +
             '<div class="tx-right">' +
-                '<div class="tx-amount ' + cls + '">' + sign + fmtNum(t.amount) + '원</div>' +
-                '<div class="tx-type-badge ' + cls + '">' + t.type + '</div>' +
+                '<div class="tx-amount ' + cls + (t.is_duplicate ? ' strikethrough' : '') + '">' + sign + fmtNum(t.amount) + '원</div>' +
+                '<div>' +
+                    '<span class="tx-type-badge ' + cls + '">' + t.type + '</span>' +
+                    duplicateBadge +
+                    costTypeBadge +
+                    sourceBadge +
+                '</div>' +
             '</div>' +
         '</div>';
     }).join("");
+}
+
+// ===== 제외 거래 뷰 =====
+function renderExcluded() {
+    const excluded = allTransactions.filter(t => t.is_excluded);
+    const totalAmount = excluded.reduce((s, t) => s + t.amount, 0);
+
+    document.getElementById("excludedCount").textContent = excluded.length + "건";
+
+    if (excluded.length === 0) {
+        document.getElementById("excludedList").innerHTML =
+            '<div class="empty"><div class="icon">✅</div><div class="msg">제외된 거래가 없습니다</div></div>';
+        return;
+    }
+
+    const sorted = [...excluded].sort((a, b) => b.date.localeCompare(a.date));
+    document.getElementById("excludedList").innerHTML =
+        '<div style="padding:8px 0;font-size:0.85rem;color:#5f6368;margin-bottom:12px;">' +
+            '총 ' + fmtAmt(totalAmount) + ' (' + excluded.length + '건)' +
+        '</div>' +
+        sorted.map(t => {
+            const cls = t.type === "입금" ? "income" : "transfer";
+            const sign = t.type === "입금" ? "+" : "";
+            const iconCls = CAT_ICON_CLASS[t.category] || "etc";
+            const icon = CAT_ICONS[t.category] || "📦";
+            return '<div class="tx-item">' +
+                '<div class="tx-left">' +
+                    '<div class="tx-icon ' + iconCls + '">' + icon + '</div>' +
+                    '<div class="tx-info">' +
+                        '<div class="tx-store">' + (t.store || "알수없음") + '</div>' +
+                        '<div class="tx-meta">' + t.date.slice(5) + ' · ' + t.exclude_type + '</div>' +
+                    '</div>' +
+                '</div>' +
+                '<div class="tx-right">' +
+                    '<div class="tx-amount ' + cls + '">' + sign + fmtNum(t.amount) + '원</div>' +
+                    '<button class="tx-action-btn" onclick="restoreExcluded(' + t.id + ')">복원</button>' +
+                '</div>' +
+            '</div>';
+        }).join("");
+}
+
+// ===== 제외 해제 =====
+function restoreExcluded(txId) {
+    const tx = allTransactions.find(t => t.id === txId);
+    if (tx) {
+        tx.is_excluded = false;
+        tx.exclude_type = "none";
+        render();
+    }
+}
+
+// ===== 중복 처리 =====
+function deleteDuplicate(txId) {
+    const idx = allTransactions.findIndex(t => t.id === txId);
+    if (idx >= 0) {
+        allTransactions.splice(idx, 1);
+        render();
+    }
+}
+
+function keepTransaction(txId) {
+    const tx = allTransactions.find(t => t.id === txId);
+    if (tx) {
+        tx.is_duplicate = false;
+        render();
+    }
 }
 
 // ===== 수동 입력 모달 =====
@@ -939,7 +1366,6 @@ function openModal() {
 }
 function closeModal() {
     document.getElementById("modalOverlay").classList.remove("show");
-    // 폼 초기화
     ["inpAmount","inpCard","inpStore"].forEach(id => document.getElementById(id).value = "");
     document.getElementById("inpCat").selectedIndex = 0;
     document.getElementById("inpCostType").selectedIndex = 0;
@@ -974,7 +1400,8 @@ async function submitManual() {
         store, amount, card, category, type: selectedType, cost_type: costType,
         date: now.toISOString().slice(0,10),
         time: String(now.getHours()).padStart(2,"0") + ":" + String(now.getMinutes()).padStart(2,"0"),
-        member: "은재", parsed: true, source: "manual"
+        member: "은재", parsed: true, source: "manual",
+        is_excluded: false, exclude_type: "none", is_duplicate: false
     };
     try {
         const res = await fetch(API_BASE + "/api/sms", {
@@ -1011,7 +1438,8 @@ async function submitPaste() {
 
 // ===== 로드맵 =====
 function renderRoadmap() {
-    const items = [
+    // 메이저 로드맵 (청사진)
+    const majors = [
         {
             ver: "v2.1", name: "기본 현황판", active: true,
             desc: "지출·입금 요약 카드, 카테고리 바, 거래 리스트, Render API 실시간 연동",
@@ -1021,30 +1449,44 @@ function renderRoadmap() {
                 { tag: "③Storage", role: "JSON 파일 저장" },
                 { tag: "⑥Dashboard", role: "기본 KPI + 거래 리스트 표시" },
                 { tag: "⑦Alerter", role: "텔레그램 그룹 알림 발송" }
-            ]
+            ],
+            patches: []
         },
         {
-            ver: "v2.5", name: "시각화 강화 ← 현재", active: true,
-            desc: "카테고리 파이차트, 일별 바차트, 건당 평균·순수지 KPI, 샘플 데이터 자동 전환, 수동 입력 모달(직접입력·문자붙여넣기)",
+            ver: "v2.5", name: "시각화 강화", active: true,
+            desc: "카테고리 파이차트, 일별 바차트, 건당 평균·순수지 KPI, 샘플 데이터 자동 전환, 수동 입력 모달",
             modules: [
                 { tag: "⑥Dashboard", role: "종합형 차트 + 탭 UI + 수동 입력 지원" },
                 { tag: "④Analyzer", role: "일별/카테고리별 집계 로직" },
                 { tag: "⑤Normalizer", role: "비용구분 필드 추가 (변동비/고정비)" }
+            ],
+            patches: [
+                {
+                    ver: "v2.51", name: "분류·감지·제외 패치 ← 현재", date: "2026-03-29",
+                    desc: "고정비/변동비 자동 분류, 중복 거래 감지, 제외 거래 필터",
+                    modules: [
+                        { tag: "③Storage", role: "cost_type, is_excluded, is_duplicate 필드 추가" },
+                        { tag: "④Analyzer", role: "중복 감지 (날짜+금액), 제외 키워드 자동 감지" },
+                        { tag: "⑤Normalizer", role: "카테고리 → 고정비/변동비 매핑 규칙" },
+                        { tag: "⑥Dashboard", role: "비율 카드, 이슈 감지, 중복 배너, 제외 탭" }
+                    ]
+                }
             ]
         },
         {
             ver: "v3.0", name: "부부 가계부", active: false,
-            desc: "은재/와이프 멤버별 필터 및 비교, 고정비 vs 변동비 분류 고도화, 월 예산 설정 & 잔여 게이지",
+            desc: "은재/와이프 멤버별 필터 및 비교, 고정비 vs 변동비 분류 고도화, 월 예산 설정 & 잔여 게이지, 이미지 OCR 입력",
             modules: [
                 { tag: "①Collector", role: "이미지 OCR 입력 + 파일 업로드 수신" },
                 { tag: "②Parser", role: "OCR 텍스트 파싱, 멤버 자동 식별" },
                 { tag: "③Storage", role: "멤버별·비용구분별 인덱스 저장" },
-                { tag: "④Analyzer", role: "고정비/변동비 분류 자동화, 예산 대비 분석" },
-                { tag: "⑤Normalizer", role: "카테고리 → 고정비/변동비 자동 매핑 규칙" },
+                { tag: "④Analyzer", role: "고정비/변동비 분류 고도화, 예산 대비 분석" },
+                { tag: "⑤Normalizer", role: "카테고리 → 고정비/변동비 자동 매핑 규칙 고도화" },
                 { tag: "⑥Dashboard", role: "멤버 필터, 예산 게이지, 고정비/변동비 비교 차트" },
                 { tag: "⑦Alerter", role: "예산 초과 경고, 멤버별 리포트" }
             ],
-            blueprint: "고정비(관리비·통신비·구독·보험) vs 변동비(식비·쇼핑·유흥·교통) 자동 분류 체계 확립"
+            blueprint: "고정비(관리비·통신비·구독·보험) vs 변동비(식비·쇼핑·유흥·교통) 자동 분류 체계 고도화 + 멤버 분리",
+            patches: []
         },
         {
             ver: "v4.0", name: "스마트 분석", active: false,
@@ -1054,7 +1496,8 @@ function renderRoadmap() {
                 { tag: "⑤Normalizer", role: "월간 트렌드 정규화, 시계열 데이터 정제" },
                 { tag: "⑥Dashboard", role: "히트맵, 추이 차트, 리포트 뷰어" },
                 { tag: "⑦Alerter", role: "이상지출 즉시 알림, 주간/월간 리포트 발송" }
-            ]
+            ],
+            patches: []
         },
         {
             ver: "v5.0", name: "자산 통합", active: false,
@@ -1067,33 +1510,74 @@ function renderRoadmap() {
                 { tag: "⑤Normalizer", role: "다중 소스 자산 데이터 통합·정규화" },
                 { tag: "⑥Dashboard", role: "총 자산 현황판, 자산 추이 차트" },
                 { tag: "⑦Alerter", role: "자산 변동 알림, 프랍 수익 리포트" }
-            ]
+            ],
+            patches: []
         }
     ];
-    document.getElementById("roadmapSection").innerHTML =
-        '<div class="section-title" style="padding:0 0 12px;">버전 로드맵 <span class="badge">v2.1 → v5.0</span></div>' +
-        items.map((it, i) =>
-            '<div class="roadmap-item">' +
-                '<div class="roadmap-dot-col">' +
-                    '<div class="roadmap-dot ' + (it.active ? 'active' : 'future') + '"></div>' +
-                    (i < items.length - 1 ? '<div class="roadmap-line"></div>' : '') +
+
+    // 렌더링
+    var html = '<div class="section-title" style="padding:0 0 12px;">버전 로드맵 <span class="badge">v2.1 → v5.0</span></div>';
+
+    majors.forEach(function(it, i) {
+        var isCurrent = it.patches && it.patches.some(function(p) { return p.name.includes("현재"); });
+        var dotClass = it.active ? "active" : (isCurrent ? "active" : "future");
+
+        html += '<div class="roadmap-item">' +
+            '<div class="roadmap-dot-col">' +
+                '<div class="roadmap-dot ' + dotClass + '"></div>' +
+                (i < majors.length - 1 || (it.patches && it.patches.length > 0) ? '<div class="roadmap-line"></div>' : '') +
+            '</div>' +
+            '<div class="roadmap-content">' +
+                '<div class="roadmap-ver ' + (it.active || isCurrent ? '' : 'future-ver') + '">' + it.ver + '</div>' +
+                '<div class="roadmap-name">' + it.name + '</div>' +
+                '<div class="roadmap-desc">' + it.desc + '</div>' +
+                (it.blueprint ? '<div style="font-size:0.7rem;color:#845ef7;margin-top:6px;padding:6px 8px;background:#f3f0ff;border-radius:6px;">📋 ' + it.blueprint + '</div>' : '') +
+                '<div class="roadmap-modules">' +
+                    it.modules.map(function(m) { return '<span title="' + m.role + '">' + m.tag + '</span>'; }).join("") +
                 '</div>' +
-                '<div class="roadmap-content">' +
-                    '<div class="roadmap-ver ' + (it.active ? '' : 'future-ver') + '">' + it.ver + '</div>' +
-                    '<div class="roadmap-name">' + it.name + '</div>' +
-                    '<div class="roadmap-desc">' + it.desc + '</div>' +
-                    (it.blueprint ? '<div style="font-size:0.7rem;color:#845ef7;margin-top:6px;padding:6px 8px;background:#f3f0ff;border-radius:6px;">📋 ' + it.blueprint + '</div>' : '') +
-                    '<div class="roadmap-modules">' +
-                        it.modules.map(m =>
-                            '<span title="' + m.role + '">' + m.tag + '</span>'
-                        ).join("") +
-                    '</div>' +
-                    '<div style="font-size:0.65rem;color:#80868b;margin-top:4px;line-height:1.5;">' +
-                        it.modules.map(m => m.tag + ': ' + m.role).join('<br>') +
-                    '</div>' +
+                '<div style="font-size:0.65rem;color:#80868b;margin-top:4px;line-height:1.5;">' +
+                    it.modules.map(function(m) { return m.tag + ': ' + m.role; }).join('<br>') +
                 '</div>' +
-            '</div>'
-        ).join("");
+            '</div>' +
+        '</div>';
+
+        // 패치 항목 (들여쓰기 + 점선)
+        if (it.patches) {
+            it.patches.forEach(function(p, pi) {
+                var isLast = pi === it.patches.length - 1;
+                html += '<div class="roadmap-item" style="margin-left:16px;">' +
+                    '<div class="roadmap-dot-col">' +
+                        '<div class="roadmap-dot" style="width:9px;height:9px;background:#845ef7;box-shadow:0 0 0 3px #ede9fe;"></div>' +
+                        (!isLast ? '<div class="roadmap-line" style="border-left:2px dashed #c4b5fd;background:none;width:0;margin-left:1px;"></div>' : '') +
+                    '</div>' +
+                    '<div class="roadmap-content" style="border-left:2px dashed #e9e5f5;padding-left:12px;margin-left:-1px;">' +
+                        '<div class="roadmap-ver" style="color:#845ef7;">' + p.ver + ' <span style="font-size:0.6rem;color:#80868b;font-weight:400;">' + (p.date || '') + '</span></div>' +
+                        '<div class="roadmap-name" style="font-size:0.8rem;">' + p.name + '</div>' +
+                        '<div class="roadmap-desc">' + p.desc + '</div>' +
+                        '<div class="roadmap-modules">' +
+                            p.modules.map(function(m) { return '<span title="' + m.role + '" style="background:#ede9fe;color:#845ef7;">' + m.tag + '</span>'; }).join("") +
+                        '</div>' +
+                        '<div style="font-size:0.65rem;color:#80868b;margin-top:4px;line-height:1.5;">' +
+                            p.modules.map(function(m) { return m.tag + ': ' + m.role; }).join('<br>') +
+                        '</div>' +
+                    '</div>' +
+                '</div>';
+            });
+        }
+    });
+
+    // 변경 로그
+    html += '<div style="margin-top:20px;padding:12px;background:#fff;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,0.06);">' +
+        '<div style="font-size:0.78rem;font-weight:600;margin-bottom:8px;">📝 변경 로그</div>' +
+        '<div style="font-size:0.68rem;color:#5f6368;line-height:1.8;">' +
+            '<div><strong style="color:#845ef7;">v2.51</strong> (2026-03-29) — 고정비/변동비 자동 분류, 중복 감지, 제외 거래 필터 <span style="color:#80868b;">[③④⑤⑥]</span></div>' +
+            '<div><strong style="color:#1a73e8;">v2.5</strong> (2026-03-28) — 종합형 대시보드, 차트, 수동 입력 모달 <span style="color:#80868b;">[④⑤⑥]</span></div>' +
+            '<div><strong style="color:#1a73e8;">v2.1</strong> (2026-03-27) — 기본 현황판, SMS 자동화, 텔레그램 연동 <span style="color:#80868b;">[①②③⑥⑦]</span></div>' +
+        '</div>' +
+        '<div style="font-size:0.6rem;color:#adb5bd;margin-top:8px;">패치(.x)는 청사진 외 보완 · 메이저(.0)는 로드맵 계획 기능</div>' +
+    '</div>';
+
+    document.getElementById("roadmapSection").innerHTML = html;
 }
 
 // ===== 유틸 =====
