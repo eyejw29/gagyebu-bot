@@ -208,14 +208,72 @@ def parse_sms(text):
 
 
 # ============================================================
-# ③ Storage
+# ③ Storage (JSON 로컬 + Firebase 영구 저장)
 # ============================================================
+FIREBASE_URL = os.environ.get("FIREBASE_URL", "")  # 예: https://xxx.firebaseio.com
+
+
+def _firebase_request(path, method="GET", data=None):
+    """Firebase Realtime Database REST API 호출"""
+    if not FIREBASE_URL:
+        return None
+    url = f"{FIREBASE_URL}/{path}.json"
+    payload = json.dumps(data, ensure_ascii=False).encode("utf-8") if data else None
+    req = urllib.request.Request(
+        url, data=payload,
+        headers={"Content-Type": "application/json"} if payload else {},
+        method=method
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            return json.loads(resp.read().decode("utf-8"))
+    except Exception as e:
+        log.error(f"Firebase 오류 ({method} {path}): {e}")
+        return None
+
+
+def _sync_from_firebase():
+    """Firebase에서 전체 거래 데이터를 로컬로 동기화"""
+    result = _firebase_request("transactions")
+    if result and isinstance(result, dict):
+        txs = list(result.values())
+        txs.sort(key=lambda x: x.get("id", 0))
+        with open(DATA_FILE, "w", encoding="utf-8") as f:
+            json.dump(txs, f, ensure_ascii=False, indent=2)
+        log.info(f"Firebase → 로컬 동기화 완료: {len(txs)}건")
+        return txs
+    return []
+
+
 def load_transactions():
     try:
         with open(DATA_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
+            data = json.load(f)
+            if data:
+                return data
     except (FileNotFoundError, json.JSONDecodeError):
-        return []
+        pass
+    # 로컬 데이터 없으면 Firebase에서 복원 시도
+    if FIREBASE_URL:
+        log.info("로컬 데이터 없음 — Firebase에서 복원 시도")
+        return _sync_from_firebase()
+    return []
+
+
+def _save_to_firebase(tx):
+    """Firebase에 거래 데이터 영구 저장"""
+    if not FIREBASE_URL:
+        log.warning("FIREBASE_URL 미설정 — Firebase 저장 건너뜀")
+        return False
+    try:
+        result = _firebase_request(f"transactions/tx_{tx['id']}", method="PUT", data=tx)
+        if result:
+            log.info(f"Firebase 저장 완료: {tx['store']} {tx['amount']}원")
+            return True
+        return False
+    except Exception as e:
+        log.error(f"Firebase 저장 실패 (로컬 저장은 정상): {e}")
+        return False
 
 
 def save_transaction(tx):
@@ -226,6 +284,8 @@ def save_transaction(tx):
     with open(DATA_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
     log.info(f"저장 완료: {tx['store']} {tx['amount']}원 [{tx['category']}] ({tx['type']})")
+    # Firebase 영구 저장 (실패해도 로컬 저장은 유지)
+    _save_to_firebase(tx)
     return tx
 
 
